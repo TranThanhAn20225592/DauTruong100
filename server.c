@@ -107,7 +107,7 @@ int main() {
             if (FD_ISSET(sockfd, &rset)) {
                 int n = recv(sockfd, buff, BUFF_SIZE-1, 0);
                 if (n <= 0) {
-                    // client disconnect -> logout if dã login
+                    // client disconnect -> logout if dï¿½ login
                     if (logged_in[i]) {
                         logoutAccount(client_user[i]);
                         logged_in[i] = 0;
@@ -130,6 +130,18 @@ int main() {
                     } else if (cnt >=1 && strcmp(cmd,"LOGIN")==0) {
                         if (cnt != 3) code = 199;
                         else {
+                            int isLoggedin = 0;
+                            for(int k = 0; k <= maxi; k++) {
+                                if (logged_in[k] && strcmp(client_user[k], u) == 0) {
+                                    isLoggedin = 1;
+                                    break;
+                                }
+                            }
+                            if (isLoggedin) {
+                                code = 113;
+                            } else {
+                                code = loginAccount(u, p);
+                            }
                             code = loginAccount(u,p);
                             if (code == 110) {
                                 logged_in[i] = 1;
