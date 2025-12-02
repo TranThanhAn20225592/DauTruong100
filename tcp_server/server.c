@@ -15,6 +15,35 @@
 #define BACKLOG 20
 #define BUFF_SIZE 4096
 
+//  DANH SÁCH USER ÐANG ONLINE
+char onlineUser[1000][50];
+int onlineCount = 0;
+
+int isUserOnline(char *username) {
+    for (int i = 0; i < onlineCount; i++) {
+        if (strcmp(onlineUser[i], username) == 0)
+            return 1;
+    }
+    return 0;
+}
+
+void setUserOnline(char *username) {
+    strcpy(onlineUser[onlineCount], username);
+    onlineCount++;
+}
+
+void setUserOffline(char *username) {
+    for (int i = 0; i < onlineCount; i++) {
+        if (strcmp(onlineUser[i], username) == 0) {
+            // replace b?ng ph?n t? cu?i
+            onlineCount--;
+            strcpy(onlineUser[i], onlineUser[onlineCount]);
+            return;
+        }
+    }
+}
+
+//SERVER
 int main() {
     int listenfd, connfd, sockfd;
     int client[FD_SETSIZE];
@@ -26,7 +55,7 @@ int main() {
     socklen_t clilen;
     char buff[BUFF_SIZE];
 
-    loadAccounts(); // load from account.txt
+    loadAccounts(); 
 
     for (int i = 0; i < FD_SETSIZE; i++) {
         client[i] = -1;
@@ -34,7 +63,7 @@ int main() {
         client_user[i][0] = 0;
     }
 
-    // create socket
+    // create socket  
     if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("socket");
         exit(1);
@@ -72,11 +101,14 @@ int main() {
             break;
         }
 
-        // NEW CONNECTION
+        // New connection 
         if (FD_ISSET(listenfd, &rset)) {
             clilen = sizeof(cliaddr);
             connfd = accept(listenfd, (struct sockaddr*)&cliaddr, &clilen);
-            if (connfd < 0) { perror("accept"); continue; }
+            if (connfd < 0) {
+                perror("accept");
+                continue;
+            }
 
             int i;
             for (i = 0; i < FD_SETSIZE; i++) {
@@ -87,6 +119,7 @@ int main() {
                     break;
                 }
             }
+
             if (i == FD_SETSIZE) {
                 printf("Too many clients\n");
                 close(connfd);
@@ -94,21 +127,24 @@ int main() {
                 FD_SET(connfd, &allset);
                 if (connfd > maxfd) maxfd = connfd;
                 if (i > maxi) maxi = i;
-                // greeting code (optional)
-                send(connfd, "100", 3, 0);
+                send(connfd, "100", 3, 0); // hello code
             }
+
             if (--nready <= 0) continue;
         }
 
-        // check client data
+        // DATA CLIENT
         for (int i = 0; i <= maxi; i++) {
             sockfd = client[i];
             if (sockfd < 0) continue;
+
             if (FD_ISSET(sockfd, &rset)) {
+
                 int n = recv(sockfd, buff, BUFF_SIZE-1, 0);
                 if (n <= 0) {
-                    // client disconnect -> logout if dï¿½ login
+                    // Client not connect 
                     if (logged_in[i]) {
+                        setUserOffline(client_user[i]);   
                         logoutAccount(client_user[i]);
                         logged_in[i] = 0;
                         client_user[i][0] = 0;
@@ -119,59 +155,68 @@ int main() {
                 } else {
                     buff[n] = 0;
                     char cmd[64], u[50], p[50];
-                    cmd[0]=u[0]=p[0]=0;
+                    cmd[0] = u[0] = p[0] = 0;
                     int cnt = sscanf(buff, "%s %s %s", cmd, u, p);
 
                     int code = 199;
 
+                    // REGISTER
                     if (cnt >= 1 && strcmp(cmd,"REGISTER")==0) {
                         if (cnt != 3) code = 199;
                         else code = registerAccount(u,p);
-                    } else if (cnt >=1 && strcmp(cmd,"LOGIN")==0) {
+                    } 
+                    
+                    // LOGIN
+                    else if (cnt >=1 && strcmp(cmd,"LOGIN")==0) {
+
                         if (cnt != 3) code = 199;
                         else {
-                            int isLoggedin = 0;
-                            for(int k = 0; k <= maxi; k++) {
-                                if (logged_in[k] && strcmp(client_user[k], u) == 0) {
-                                    isLoggedin = 1;
-                                    break;
+
+                            if (isUserOnline(u)) {
+                                code = 113; 
+                            } else {
+                                code = loginAccount(u,p);
+                                if (code == 110) {
+                                    logged_in[i] = 1;
+                                    strcpy(client_user[i], u);
+                                    setUserOnline(u);
                                 }
                             }
-                            if (isLoggedin) {
-                                code = 113;
-                            } else {
-                                code = loginAccount(u, p);
-                            }
-                            code = loginAccount(u,p);
-                            if (code == 110) {
-                                logged_in[i] = 1;
-                                strncpy(client_user[i], u, 49);
-                                client_user[i][49]=0;
-                            }
                         }
-                    } else if (cnt >=1 && strcmp(cmd,"LOGOUT")==0) {
+                    }
+
+                    // LOGOUT
+                    else if (cnt >= 1 && strcmp(cmd,"LOGOUT")==0) {
+
                         if (!logged_in[i]) code = 121;
                         else {
                             code = logoutAccount(client_user[i]);
                             if (code == 120) {
-                                logged_in[i]=0;
-                                client_user[i][0]=0;
+                                setUserOffline(client_user[i]);
+                                logged_in[i] = 0;
+                                client_user[i][0] = 0;
                             }
                         }
-                    } else {
+                    }
+
+                    // Error 
+                    else {
                         code = 199;
                     }
 
                     char out[16];
-                    snprintf(out,sizeof(out),"%d",code);
-                    send(sockfd,out,strlen(out),0);
+                    snprintf(out, sizeof(out), "%d", code);
+                    send(sockfd, out, strlen(out), 0);
                 }
+
                 if (--nready <= 0) break;
             }
         }
     }
 
-    for (int i=0;i<=maxi;i++) if (client[i]>0) close(client[i]);
+    for (int i = 0; i <= maxi; i++)
+        if (client[i] > 0) close(client[i]);
+
     close(listenfd);
     return 0;
 }
