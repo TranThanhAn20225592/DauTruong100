@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -15,9 +16,25 @@
 #define BACKLOG 20
 #define BUFF_SIZE 4096
 
-//  DANH SÁCH USER ÐANG ONLINE
+//  DANH Sï¿½CH USER ï¿½ANG ONLINE
 char onlineUser[1000][50];
 int onlineCount = 0;
+
+void writeLog(int functionId, const char *value, const char *result) {
+    FILE *f = fopen("log.txt", "a");
+    if (!f) return;
+
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    if (!t) {
+        fclose(f);
+        return;
+    }
+
+    fprintf(f, "[%02d/%02d/%04d %02d:%02d:%02d] $ %d $ %s $ %s\n",
+        t->tm_mday, t->tm_mon + 1, t->tm_year + 1900, t->tm_hour, t->tm_min, t->tm_sec, functionId, value ? value : "", result ? result : "");
+    fclose(f);
+}
 
 int isUserOnline(char *username) {
     for (int i = 0; i < onlineCount; i++) {
@@ -154,6 +171,7 @@ int main() {
                     client[i] = -1;
                 } else {
                     buff[n] = 0;
+                    char payload[50];
                     char cmd[64], u[50], p[50];
                     cmd[0] = u[0] = p[0] = 0;
                     int cnt = sscanf(buff, "%s %s %s", cmd, u, p);
@@ -162,8 +180,19 @@ int main() {
 
                     // REGISTER
                     if (cnt >= 1 && strcmp(cmd,"REGISTER")==0) {
-                        if (cnt != 3) code = 199;
-                        else code = registerAccount(u,p);
+                        if (cnt != 3) {
+                            code = 199;
+                            writeLog(1, "", "-ERR 119");
+                        }
+                        else {
+                            code = registerAccount(u,p);
+                            strcpy(payload, u);
+                            if (code == 100) {
+                                writeLog(1, payload, "+OK 110");
+                            } else {
+                                writeLog(1, payload, "-ERR 101");
+                            }
+                        }
                     } 
                     
                     // LOGIN
@@ -173,13 +202,17 @@ int main() {
                         else {
 
                             if (isUserOnline(u)) {
-                                code = 113; 
+                                code = 113;
+                                strcpy(payload, u);
+                                writeLog(2, payload, "-ERR 113");
                             } else {
                                 code = loginAccount(u,p);
                                 if (code == 110) {
                                     logged_in[i] = 1;
                                     strcpy(client_user[i], u);
                                     setUserOnline(u);
+                                    strcpy(payload, u);
+                                    writeLog(2, payload, "+OK 110");
                                 }
                             }
                         }
@@ -188,13 +221,18 @@ int main() {
                     // LOGOUT
                     else if (cnt >= 1 && strcmp(cmd,"LOGOUT")==0) {
 
-                        if (!logged_in[i]) code = 121;
+                        if (!logged_in[i]) {
+                            code = 121;
+                            writeLog(3, "", "-ERR 121");
+                        }
                         else {
                             code = logoutAccount(client_user[i]);
                             if (code == 120) {
                                 setUserOffline(client_user[i]);
                                 logged_in[i] = 0;
                                 client_user[i][0] = 0;
+                                strcpy(payload, client_user[i]);
+                                writeLog(3, payload, "+OK 120");
                             }
                         }
                     }
