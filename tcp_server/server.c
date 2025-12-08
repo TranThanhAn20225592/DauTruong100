@@ -52,7 +52,6 @@ void setUserOnline(char *username) {
 void setUserOffline(char *username) {
     for (int i = 0; i < onlineCount; i++) {
         if (strcmp(onlineUser[i], username) == 0) {
-            // replace b?ng ph?n t? cu?i
             onlineCount--;
             strcpy(onlineUser[i], onlineUser[onlineCount]);
             return;

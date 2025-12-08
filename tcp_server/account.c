@@ -54,7 +54,7 @@ int findAccount(const char *username) {
 // REGISTER
 int registerAccount(const char *username, const char *password) {
     if (findAccount(username) != -1) {
-        return 101; // Account t?n t?i
+        return 101; 
     }
 
     strcpy(accounts[accountCount].username, username);
@@ -62,25 +62,25 @@ int registerAccount(const char *username, const char *password) {
     accountCount++;
 
     saveAccounts();
-    return 100; // OK
+    return 100; 
 }
 
-// LOGIN (không lýu tr?ng thái vào file)
+// LOGIN 
 int loginAccount(const char *username, const char *password) {
     int idx = findAccount(username);
-    if (idx == -1) return 112; // không t?n t?i
+    if (idx == -1) return 112; 
 
     if (strcmp(accounts[idx].password, password) != 0)
-        return 111; // sai password
+        return 111; 
 
-    return 110; // login thành công
+    return 110; 
 }
 
 // LOGOUT (no file save)
 int logoutAccount(const char *username) {
     int idx = findAccount(username);
-    if (idx == -1) return 112; // không t?n t?i
+    if (idx == -1) return 112; 
 
-    return 120; // luôn logout thành công (v? không lýu tr?ng thái)
+    return 120; 
 }
 
