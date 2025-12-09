@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -11,53 +10,12 @@
 #include <sys/select.h>
 
 #include "account.h"
+#include "handle_request.h"
+#include "join.h"
 
 #define PORT 5550
 #define BACKLOG 20
 #define BUFF_SIZE 4096
-
-//  DANH Sï¿½CH USER ï¿½ANG ONLINE
-char onlineUser[1000][50];
-int onlineCount = 0;
-
-void writeLog(int functionId, const char *value, const char *result) {
-    FILE *f = fopen("log.txt", "a");
-    if (!f) return;
-
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
-    if (!t) {
-        fclose(f);
-        return;
-    }
-
-    fprintf(f, "[%02d/%02d/%04d %02d:%02d:%02d] $ %d $ %s $ %s\n",
-        t->tm_mday, t->tm_mon + 1, t->tm_year + 1900, t->tm_hour, t->tm_min, t->tm_sec, functionId, value ? value : "", result ? result : "");
-    fclose(f);
-}
-
-int isUserOnline(char *username) {
-    for (int i = 0; i < onlineCount; i++) {
-        if (strcmp(onlineUser[i], username) == 0)
-            return 1;
-    }
-    return 0;
-}
-
-void setUserOnline(char *username) {
-    strcpy(onlineUser[onlineCount], username);
-    onlineCount++;
-}
-
-void setUserOffline(char *username) {
-    for (int i = 0; i < onlineCount; i++) {
-        if (strcmp(onlineUser[i], username) == 0) {
-            onlineCount--;
-            strcpy(onlineUser[i], onlineUser[onlineCount]);
-            return;
-        }
-    }
-}
 
 //SERVER
 int main() {
@@ -109,13 +67,41 @@ int main() {
     printf("SERVER started on port %d\n", PORT);
 
     while (1) {
-        rset = allset;
-        int nready = select(maxfd+1, &rset, NULL, NULL, NULL);
-        if (nready < 0) {
-            if (errno == EINTR) continue;
-            perror("select");
-            break;
+    	// KIEM TRA TIMEOUT PHÒNG CHO JOIN
+        int timeoutCode = checkJoinTimeout();
+        if (timeoutCode == 210 || timeoutCode == 202) {
+
+          // Gui mã cho tat ca client trong phòng cho
+          for (int j = 0; j < waitingCount; j++) {
+            char notify[16];
+            sprintf(notify, "%d", timeoutCode);
+            send(waitingRoom[j], notify, strlen(notify), 0);
+          }
+
+          // Reset phòng sau khi gui mã
+          initWaitingRoom();
         }
+    	
+        rset = allset;
+
+        // Tao timeout cho select (1 giây)
+        struct timeval tv;
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+
+        int nready = select(maxfd+1, &rset, NULL, NULL, &tv);
+
+        // Neu het thoi gian cho -> quay lai vòng lap de kiem tra timeout JOIN
+        if (nready == 0) {
+          continue;
+        }
+
+        if (nready < 0) {
+          if (errno == EINTR) continue;
+          perror("select");
+          break;
+        }
+
 
         // New connection 
         if (FD_ISSET(listenfd, &rset)) {
@@ -143,7 +129,7 @@ int main() {
                 FD_SET(connfd, &allset);
                 if (connfd > maxfd) maxfd = connfd;
                 if (i > maxi) maxi = i;
-                send(connfd, "100", 3, 0); // hello code
+                send(connfd, "900", 3, 0); // hello code
             }
 
             if (--nready <= 0) continue;
@@ -170,77 +156,7 @@ int main() {
                     client[i] = -1;
                 } else {
                     buff[n] = 0;
-                    char payload[50];
-                    char cmd[64], u[50], p[50];
-                    cmd[0] = u[0] = p[0] = 0;
-                    int cnt = sscanf(buff, "%s %s %s", cmd, u, p);
-
-                    int code = 199;
-
-                    // REGISTER
-                    if (cnt >= 1 && strcmp(cmd,"REGISTER")==0) {
-                        if (cnt != 3) {
-                            code = 199;
-                            writeLog(1, "", "-ERR 119");
-                        }
-                        else {
-                            code = registerAccount(u,p);
-                            strcpy(payload, u);
-                            if (code == 100) {
-                                writeLog(1, payload, "+OK 110");
-                            } else {
-                                writeLog(1, payload, "-ERR 101");
-                            }
-                        }
-                    } 
-                    
-                    // LOGIN
-                    else if (cnt >=1 && strcmp(cmd,"LOGIN")==0) {
-
-                        if (cnt != 3) code = 199;
-                        else {
-
-                            if (isUserOnline(u)) {
-                                code = 113;
-                                strcpy(payload, u);
-                                writeLog(2, payload, "-ERR 113");
-                            } else {
-                                code = loginAccount(u,p);
-                                if (code == 110) {
-                                    logged_in[i] = 1;
-                                    strcpy(client_user[i], u);
-                                    setUserOnline(u);
-                                    strcpy(payload, u);
-                                    writeLog(2, payload, "+OK 110");
-                                }
-                            }
-                        }
-                    }
-
-                    // LOGOUT
-                    else if (cnt >= 1 && strcmp(cmd,"LOGOUT")==0) {
-
-                        if (!logged_in[i]) {
-                            code = 121;
-                            writeLog(3, "", "-ERR 121");
-                        }
-                        else {
-                            code = logoutAccount(client_user[i]);
-                            if (code == 120) {
-                                setUserOffline(client_user[i]);
-                                logged_in[i] = 0;
-                                client_user[i][0] = 0;
-                                strcpy(payload, client_user[i]);
-                                writeLog(3, payload, "+OK 120");
-                            }
-                        }
-                    }
-
-                    // Error 
-                    else {
-                        code = 199;
-                    }
-
+                    int code = handleRequest(buff, i, sockfd, logged_in, client_user);
                     char out[16];
                     snprintf(out, sizeof(out), "%d", code);
                     send(sockfd, out, strlen(out), 0);

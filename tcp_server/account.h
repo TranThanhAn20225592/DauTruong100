@@ -26,6 +26,7 @@
 typedef struct {
     char username[MAX_USERNAME_LEN];
     char password[MAX_PASSWORD_LEN];
+    int isLoggedIn;   // 0 = chýa login, 1 = ðang login
 } Account;
 
 

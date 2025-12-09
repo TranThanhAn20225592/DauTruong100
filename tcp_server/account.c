@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,6 +52,8 @@ int findAccount(const char *username) {
 
 // REGISTER
 int registerAccount(const char *username, const char *password) {
+	loadAccounts();
+	
     if (findAccount(username) != -1) {
         return 101; 
     }
@@ -62,25 +63,24 @@ int registerAccount(const char *username, const char *password) {
     accountCount++;
 
     saveAccounts();
-    return 100; 
+    return 100; // OK
 }
 
-// LOGIN 
+// LOGIN
 int loginAccount(const char *username, const char *password) {
     int idx = findAccount(username);
     if (idx == -1) return 112; 
 
     if (strcmp(accounts[idx].password, password) != 0)
-        return 111; 
+        return 111; // sai password
 
-    return 110; 
+    return 110; // login thành công
 }
 
-// LOGOUT (no file save)
+// LOGOUT
 int logoutAccount(const char *username) {
     int idx = findAccount(username);
     if (idx == -1) return 112; 
-
-    return 120; 
+    return 120;
 }
 
