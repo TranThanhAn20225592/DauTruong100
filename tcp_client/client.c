@@ -8,7 +8,8 @@
 
 // CODE Server 
 void explain_code(const char *code) {
-    if (strcmp(code,"100") == 0) puts("Register successful");             
+    if (strcmp(code,"900") == 0) puts("Connected to server");     
+    else if (strcmp(code,"100") == 0) puts("Register successful");             
     else if (strcmp(code,"101") == 0) puts("Account already exists");     
     else if (strcmp(code,"110") == 0) puts("Login successful");               
     else if (strcmp(code,"111") == 0) puts("Wrong password");                  
@@ -17,17 +18,31 @@ void explain_code(const char *code) {
     else if (strcmp(code,"120") == 0) puts("Logout successful");
     else if (strcmp(code,"121") == 0) puts("Logout failed, you are not logged in");
     else if (strcmp(code,"199") == 0) puts("Error / Invalid command");
+
+    // JOIN ROOM
+    else if (strcmp(code,"200") == 0) puts("JOIN OK - Dang cho nguoi choi khac...");
+    else if (strcmp(code,"201") == 0) puts("Phong cho da day!");
+    else if (strcmp(code,"202") == 0) puts("Khong du nguoi de bat dau tro choi!");
+    else if (strcmp(code,"210") == 0) puts("Tro choi bat dau!");
+    else if (strcmp(code,"299") == 0) puts("JOIN failed - Ban chua dang nhap!");
+
     else printf("Server returned code: %s\n", code);
 }
 
-// menu
-void menu(void) {
+// menu cho 2 trang thái: dã login / chua login
+void menu(int logged_in) {
     puts("\n MENU ");
-    puts("1) REGISTER");
-    puts("2) LOGIN");
-    puts("3) LOGOUT");
-    puts("4) EXIT");
-    printf("Select [1-4]: ");
+    if (!logged_in) {
+        puts("1) REGISTER");
+        puts("2) LOGIN");
+        puts("3) EXIT");
+        printf("Select [1-3]: ");
+    } else {
+        puts("1) JOIN GAME ROOM");
+        puts("2) LOGOUT");
+        puts("3) EXIT");
+        printf("Select [1-3]: ");
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -42,6 +57,8 @@ int main(int argc, char *argv[]) {
     int sockfd;
     struct sockaddr_in servaddr;
     char sendBuff[MAXLINE], recvBuff[MAXLINE];
+
+    int logged_in = 0;
 
     // create socket
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -65,62 +82,110 @@ int main(int argc, char *argv[]) {
 
     // greeting code
     ssize_t n = recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
-    if (n>0) {
-        recvBuff[n]=0;
+    if (n > 0) {
+        recvBuff[n] = 0;
         explain_code(recvBuff);
     }
 
     int choice;
+
     while (1) {
-        menu();
-        if (scanf("%d", &choice)!=1) break;
+
+        menu(logged_in);
+
+        if (scanf("%d", &choice) != 1) break;
         while (getchar()!='\n'); // clear stdin
 
-        if (choice == 1) { // REGISTER
-            char username[50], password[50];
-            printf("Username: "); scanf("%49s", username); while(getchar()!='\n');
-            printf("Password: "); scanf("%49s", password); while(getchar()!='\n');
+        //   MENU CHUA ÐANG NHAP
+        if (!logged_in) {
 
-            snprintf(sendBuff,sizeof(sendBuff),"REGISTER %s %s", username,password);
-            send(sockfd, sendBuff, strlen(sendBuff),0);
+            if (choice == 1) { // REGISTER
+                char username[50], password[50];
+                printf("Username: "); scanf("%49s", username); while(getchar()!='\n');
+                printf("Password: "); scanf("%49s", password); while(getchar()!='\n');
 
-            n = recv(sockfd, recvBuff, sizeof(recvBuff)-1,0);
-            if (n<=0) { puts("Server is not connect."); break; }
-            recvBuff[n]=0;
-            explain_code(recvBuff);
+                snprintf(sendBuff,sizeof(sendBuff),"REGISTER %s %s", username, password);
+                send(sockfd, sendBuff, strlen(sendBuff),0);
+
+                n = recv(sockfd, recvBuff, sizeof(recvBuff)-1,0);
+                recvBuff[n] = 0;
+                explain_code(recvBuff);
+            }
+
+            else if (choice == 2) { // LOGIN
+                char username[50], password[50];
+                printf("Username: "); scanf("%49s", username); while(getchar()!='\n');
+                printf("Password: "); scanf("%49s", password); while(getchar()!='\n');
+
+                snprintf(sendBuff,sizeof(sendBuff),"LOGIN %s %s", username, password);
+                send(sockfd, sendBuff, strlen(sendBuff),0);
+
+                n = recv(sockfd, recvBuff, sizeof(recvBuff)-1,0);
+                recvBuff[n] = 0;
+                explain_code(recvBuff);
+
+                if (strcmp(recvBuff,"110") == 0) {
+                    logged_in = 1; // login succeed
+                }
+            }
+
+            else if (choice == 3) {
+                puts("Exit client.");
+                break;
+            }
+
+            else puts("Invalid choice!");
         }
-        else if (choice == 2) { // LOGIN
-            char username[50], password[50];
-            printf("Username: "); scanf("%49s", username); while(getchar()!='\n');
-            printf("Password: "); scanf("%49s", password); while(getchar()!='\n');
 
-            snprintf(sendBuff,sizeof(sendBuff),"LOGIN %s %s", username,password);
-            send(sockfd, sendBuff, strlen(sendBuff),0);
-
-            n = recv(sockfd, recvBuff, sizeof(recvBuff)-1,0);
-            if (n<=0) { puts("Server is not connect."); break; }
-            recvBuff[n]=0;
-            explain_code(recvBuff);
-        }
-        else if (choice == 3) { // LOGOUT
-            snprintf(sendBuff,sizeof(sendBuff),"LOGOUT");
-            send(sockfd, sendBuff, strlen(sendBuff),0);
-
-            n = recv(sockfd, recvBuff, sizeof(recvBuff)-1,0);
-            if (n<=0) { puts("Server is not connect."); break; }
-            recvBuff[n]=0;
-            explain_code(recvBuff);
-        }
-        else if (choice == 4) { // EXIT
-            puts("Exit client.");
-            break;
-        }
+        // MENU ÐÃ ÐANG NHAP
         else {
-            puts("Select not found");
+        	
+            if (choice == 1) { // JOIN
+              snprintf(sendBuff,sizeof(sendBuff),"JOIN");
+              send(sockfd, sendBuff, strlen(sendBuff),0);
+
+              // ==== LAN 1: nhan 200 hoac loi ====
+              n = recv(sockfd, recvBuff, sizeof(recvBuff)-1,0);
+              recvBuff[n] = 0;
+              explain_code(recvBuff);
+              // Neu không phai 200 (JOIN OK) thì quay lai menu luôn
+              if (strcmp(recvBuff,"200") != 0) {
+                continue;
+              }
+
+              // recv() se block den khi server gui 202 hoac 210
+              n = recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
+              recvBuff[n] = 0;
+              explain_code(recvBuff);
+              if (strcmp(recvBuff,"210") == 0) {
+                puts("Dang bat dau tro choi...");
+                // TODO gamePlay();
+              }
+               // Neu là 202, client tu in "Không du nguoi choi"
+               // và sau dó tu quay lai menu (nhu vòng lap chính)
+            }
+            
+            else if (choice == 2) { // LOGOUT
+                snprintf(sendBuff,sizeof(sendBuff),"LOGOUT");
+                send(sockfd, sendBuff, strlen(sendBuff),0);
+
+                n = recv(sockfd, recvBuff, sizeof(recvBuff)-1,0);
+                recvBuff[n] = 0;
+                explain_code(recvBuff);
+
+                if (strcmp(recvBuff,"120") == 0)
+                    logged_in = 0;
+            }
+            
+            else if (choice == 3) {
+                puts("Exit client.");
+                break;
+            }
+            else puts("Invalid choice!");
         }
     }
-
     close(sockfd);
     return 0;
 }
+
 
