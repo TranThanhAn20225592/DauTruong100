@@ -3,7 +3,7 @@ CC = gcc
 CFLAGS = -std=c11 -Wall -Wextra -O2 -pthread
 
 # Source files
-SERVER_SRC = tcp_server/server.c tcp_server/account.c
+SERVER_SRC = tcp_server/server.c tcp_server/account.c tcp_server/handle_request.c tcp_server/join.c
 CLIENT_SRC = tcp_client/client.c 
 
 # Output binaries (placed at root)
