@@ -7,6 +7,8 @@
 char onlineUser[1000][50];
 int onlineCount = 0;
 
+extern int gameState;
+
 int isUserOnline(char *username) {
     for (int i = 0; i < onlineCount; i++) {
         if (strcmp(onlineUser[i], username) == 0)
@@ -75,15 +77,14 @@ int handleRequest(
                 client_user[i][0] = 0;
             }
         }
-    }
-    
+    }    
     // JOIN
     else if (strcmp(cmd, "JOIN") == 0) {
-        if (!logged_in[i]) return 299; // phai dang nhap
+        if (!logged_in[i]) return 299; // phai dang 
+        if (gameState == 1) return 203; // khong the join khi dang choi
         code = handleJoin(client_fd);  // tra: 200,201,210,299
         return code;
-    }
-    
+    }    
     else {
         code = 199;
     }

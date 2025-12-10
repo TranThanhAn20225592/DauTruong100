@@ -8,14 +8,19 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/select.h>
+#include <time.h>
 
 #include "account.h"
 #include "handle_request.h"
 #include "join.h"
+#include "player.h"
+#include "question.h"
 
 #define PORT 5550
 #define BACKLOG 20
 #define BUFF_SIZE 4096
+
+int gameState = 0; //0: waiting, 1: in-game
 
 //SERVER
 int main() {
@@ -30,6 +35,8 @@ int main() {
     char buff[BUFF_SIZE];
 
     loadAccounts(); 
+    loadQuestions("questions.txt");
+    initPlayers();
 
     for (int i = 0; i < FD_SETSIZE; i++) {
         client[i] = -1;
@@ -67,31 +74,51 @@ int main() {
     printf("SERVER started on port %d\n", PORT);
 
     while (1) {
-    	// KIEM TRA TIMEOUT PH�NG CHO JOIN
+    	// KIEM TRA TIMEOUT PH�NG CHO JOIN
         int timeoutCode = checkJoinTimeout();
-        if (timeoutCode == 210 || timeoutCode == 202) {
+        if (timeoutCode == 210) {
+            printf("GAME START! Transferring players...\n");
 
-          // Gui m� cho tat ca client trong ph�ng cho
-          for (int j = 0; j < waitingCount; j++) {
-            char notify[16];
-            sprintf(notify, "%d", timeoutCode);
-            send(waitingRoom[j], notify, strlen(notify), 0);
-          }
+          // Gui m� cho tat ca client trong ph�ng cho
+            for (int j = 0; j < waitingCount; j++) {
+                int sock = waitingRoom[j];
+                    char *name = "Unknown";
 
-          // Reset ph�ng sau khi gui m�
-          initWaitingRoom();
+                    // Tìm tên người chơi trong danh sách kết nối hiện tại
+                    for(int k = 0; k <= maxi; k++) {
+                        if (client[k] == sock) {
+                            name = client_user[k];
+                            break;
+                        }
+                    }
+
+                    // Thêm vào danh sách thi đấu (Hàm này tự set điểm = 10)
+                    addPlayer(sock, name);
+                    
+                    // Gửi thông báo Bắt đầu (Thêm \n để an toàn)
+                    send(sock, "210\n", 4, 0);
+                }   
+            gameState = 1; //Mode change: GAME START
+            initWaitingRoom();
+        // Reset ph�ng sau khi gui m�
+        } else if (timeoutCode == 202) {
+            // Trường hợp không đủ người -> Giải tán
+            for (int j = 0; j < waitingCount; j++) {
+                send(waitingRoom[j], "202\n", 4, 0);
+            }
+            initWaitingRoom();
         }
     	
         rset = allset;
 
-        // Tao timeout cho select (1 gi�y)
+        // Tao timeout cho select (1 gi�y)
         struct timeval tv;
         tv.tv_sec = 1;
         tv.tv_usec = 0;
 
         int nready = select(maxfd+1, &rset, NULL, NULL, &tv);
 
-        // Neu het thoi gian cho -> quay lai v�ng lap de kiem tra timeout JOIN
+        // Neu het thoi gian cho -> quay lai v�ng lap de kiem tra timeout JOIN
         if (nready == 0) {
           continue;
         }
