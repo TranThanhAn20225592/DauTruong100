@@ -30,7 +30,7 @@ int loadQuestions(const char *filename) {
             list[questionCount].options[i][strcspn(list[questionCount].options[i], "\n")] = 0;
         }
 
-        // Đọc đáp án đúng
+        // Doc dap an dung
         if (!fgets(buffer, sizeof(buffer), f)) break;
         list[questionCount].correct_answer = atoi(buffer);
 
@@ -40,4 +40,9 @@ int loadQuestions(const char *filename) {
     fclose(f);
     printf("Loaded %d questions.\n", questionCount);
     return questionCount;
+}
+
+int getCorrectAnswer() {
+    extern int currentQuestionId;
+    return questions[currentQuestionId].correct_answer; 
 }

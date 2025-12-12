@@ -9,10 +9,7 @@ int waitingRoom[WAITING_MAX];
 int waitingCount = 0;
 time_t startTime = 0;
 
-
-// =======================
 // Khoi tao / reset phòng
-// =======================
 void initWaitingRoom() {
     waitingCount = 0;
     startTime = 0;
@@ -22,14 +19,11 @@ void initWaitingRoom() {
     }
 }
 
-
-// =======================
 // Kiem tra timeout chi JOIN
 // Tra ve:
 //   0   = không timeout
 //   210 = het thoi gian, du nguoi, bat dau game
 //   202 = het thoi gian, chi 1 nguoi, không du nguoi
-// =======================
 int checkJoinTimeout() {
     if (waitingCount == 0 || startTime == 0)
         return 0;
@@ -50,14 +44,11 @@ int checkJoinTimeout() {
     return 202;      // không du nguoi
 }
 
-
-// =======================
 // Xu lý JOIN
 // Tra ve:
 //   200 = Join thành công
 //   201 = Phòng day
 //   210 = Phòng du 100 nguoi, bat dau game ngay
-// =======================
 int handleJoin(int sockfd) {
 
     // Phòng dã du 100 nguoi

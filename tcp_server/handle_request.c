@@ -1,9 +1,15 @@
 #include <stdio.h>
 #include <string.h>
+#include <sys/time.h>
+#include <limits.h>
+#include <stdlib.h> 
 #include "handle_request.h"
 #include "account.h"
 #include "join.h"
 #include "player.h"
+#include "game.h"
+#include "question.h" 
+
 
 char onlineUser[1000][50];
 int onlineCount = 0;
@@ -40,9 +46,6 @@ int handleRequest(
     int logged_in[],
     char client_user[][50]
 ) {
-    // char cmd[64], u[50], p[50];
-    // int answer = 0;
-    // cmd[0]=u[0]=p[0]=0;
 
     char cmd[64] = {0};
     char arg1[50] = {0};
@@ -95,23 +98,65 @@ int handleRequest(
         code = handleJoin(client_fd);  // tra: 200,201,210,299
         return code;
     } 
+    
     //ANSWER
     else if (strcmp(cmd, "ANSWER") == 0) {
-        char *a = arg1; // Vì cú pháp là "ANSWER <số>" nên arg1 chính là đáp án
 
-        if (cnt == 2) { // Cần ít nhất cmd và arg1
-            int ans_val = atoi(a); 
-            // Xử lý logic game...
-            Player *p = getPlayer(client_fd);
-            if (p != NULL && p->state == 1) {
-                p->currentAnswer = ans_val;
-                printf("[GAME] Player %s answered: %d\n", p->username, ans_val);
-                code = 300; // Mã phản hồi cho việc nhận câu trả lời
-            } else {
-                code = 301; // Mã phản hồi cho người chơi đã bị loại hoặc không tồn tại
+        if (cnt == 2) {
+           int ans_val = atoi(arg1);
+           Player *p = getPlayer(client_fd);
+
+           if (p == NULL || p->state != 1) return 301;
+           if (p->answered) return 302;
+
+           struct timeval now;
+           gettimeofday(&now, NULL);
+
+            long elapsed =
+               (now.tv_sec - question_start_time.tv_sec) * 1000 +
+               (now.tv_usec - question_start_time.tv_usec) / 1000;
+
+            p->currentAnswer = ans_val;
+            p->answered = 1;
+            p->response_time_ms = elapsed;
+            p->isCorrect = (ans_val == getCorrectAnswer());
+
+            int allAnswered = 1;
+            for (int i = 0; i < playerCount; i++) {
+                if (players[i].state == 1 && !players[i].answered) {
+                   allAnswered = 0;
+                   break;
+                }
             }
+
+            if (allAnswered) {
+                int winner = -1;
+                long best_time = LONG_MAX;
+
+                for (int i = 0; i < playerCount; i++) {
+                    if (players[i].state == 1 &&
+                        players[i].isCorrect &&
+                        players[i].response_time_ms < best_time) {
+
+                        best_time = players[i].response_time_ms;
+                        winner = i;
+                    }
+                }
+
+                // set role
+                for (int i = 0; i < playerCount; i++)
+                players[i].role = 0;
+
+                if (winner != -1)
+                players[winner].role = 1;
+
+                broadcastResult(winner);
+            }
+
+            return 300;
         }
-    }   
+    }
+
     else {
         code = 199;
     }

@@ -11,5 +11,6 @@ extern Question *questions; // Mảng động hoặc tĩnh tùy ý
 extern int questionCount;
 
 int loadQuestions(const char *filename);
+int getCorrectAnswer();
 
 #endif

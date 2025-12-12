@@ -40,6 +40,10 @@ void removePlayer(int sockfd) {
 void resetPlayerAnswers() {
     for (int i = 0; i < playerCount; i++) {
         players[i].currentAnswer = 0;
+        players[i].answered = 0;
+        players[i].isCorrect = 0;
+        players[i].response_time_ms = 0;
+        players[i].role = 0;
     }
 }
 
