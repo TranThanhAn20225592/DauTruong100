@@ -6,251 +6,199 @@
 
 #define MAXLINE 4096
 
-// CODE Server 
+// ================= EXPLAIN SERVER CODE =================
 void explain_code(const char *code) {
-    if (strcmp(code,"900") == 0) puts("Connected to server");     
-    else if (strcmp(code,"100") == 0) puts("Register successful");             
-    else if (strcmp(code,"101") == 0) puts("Account already exists");     
-    else if (strcmp(code,"110") == 0) puts("Login successful");               
-    else if (strcmp(code,"111") == 0) puts("Wrong password");                  
-    else if (strcmp(code,"112") == 0) puts("Account does not exist");          
-    else if (strcmp(code,"113") == 0) puts("This account is already logged in elsewhere"); 
+    if (strcmp(code,"900") == 0) puts("Connected to server");
+    else if (strcmp(code,"100") == 0) puts("Register successful");
+    else if (strcmp(code,"101") == 0) puts("Account already exists");
+    else if (strcmp(code,"110") == 0) puts("Login successful");
+    else if (strcmp(code,"111") == 0) puts("Wrong password");
+    else if (strcmp(code,"112") == 0) puts("Account does not exist");
+    else if (strcmp(code,"113") == 0) puts("Account already logged in");
     else if (strcmp(code,"120") == 0) puts("Logout successful");
-    else if (strcmp(code,"121") == 0) puts("Logout failed, you are not logged in");
-    else if (strcmp(code,"199") == 0) puts("Error / Invalid command");
+    else if (strcmp(code,"121") == 0) puts("Logout failed");
 
-    // JOIN ROOM
     else if (strcmp(code,"200") == 0) puts("JOIN OK - Dang cho nguoi choi khac...");
     else if (strcmp(code,"201") == 0) puts("Phong cho da day!");
     else if (strcmp(code,"202") == 0) puts("Khong du nguoi de bat dau tro choi!");
     else if (strcmp(code,"210") == 0) puts("Tro choi bat dau!");
-    else if (strcmp(code,"299") == 0) puts("JOIN failed - Ban chua dang nhap!");
-
-    else printf("Server returned code: %s\n", code);
+    else puts(code);
 }
 
-// menu cho 2 trang th�i: d� login / chua login
+// ================= MENU =================
 void menu(int logged_in) {
-    puts("\n MENU ");
+    puts("\n===== MENU =====");
     if (!logged_in) {
         puts("1) REGISTER");
         puts("2) LOGIN");
         puts("3) EXIT");
-        printf("Select [1-3]: ");
     } else {
         puts("1) JOIN GAME ROOM");
         puts("2) LOGOUT");
         puts("3) EXIT");
-        printf("Select [1-3]: ");
     }
+    printf("Select: ");
 }
 
-void gamePlay(int sockfd) {
+// ================= GAME PLAY =================
+void gamePlay(int sockfd, const char *my_username) {
     char recvBuff[MAXLINE];
     char sendBuff[MAXLINE];
     int n;
 
     while (1) {
-        printf("\n--- WAITING QUESTION FROM SERVER ---\n");
-        
-        // 1. Chờ nhận câu hỏi (Blocking)
+
+        // BLOCK ch? server (QUES / RESULT)
         n = recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
         if (n <= 0) {
-            puts("Unable to connect to server!");
+            puts("Disconnected from server!");
             return;
         }
         recvBuff[n] = 0;
 
-        // 2. Kiểm tra xem có phải gói tin QUES không?
+        // ===== QUESTION =====
         if (strncmp(recvBuff, "QUES|", 5) == 0) {
-            // Tách chuỗi theo ký tự '|'
-            // Format: QUES|Cau hoi|Op1|Op2|Op3|Op4
-            char *token = strtok(recvBuff, "|"); // Lấy chữ QUES (bỏ qua)
-            
+
+            strtok(recvBuff, "|");
             char *question = strtok(NULL, "|");
             char *op1 = strtok(NULL, "|");
             char *op2 = strtok(NULL, "|");
             char *op3 = strtok(NULL, "|");
-            char *op4 = strtok(NULL, "\n"); // Cái cuối cùng có thể dính \n
+            char *op4 = strtok(NULL, "\n");
 
-            if (question && op1 && op2 && op3 && op4) {
-                printf("\n[QUESTION]: %s\n", question);
-                printf("1. %s\n", op1);
-                printf("2. %s\n", op2);
-                printf("3. %s\n", op3);
-                printf("4. %s\n", op4);
-                
-                // 3. Nhập câu trả lời
-                int ans;
-                do {
-                    printf("Enter your answer (1-4): ");
-                    if (scanf("%d", &ans) != 1) {
-                        while(getchar() != '\n'); // Xóa bộ đệm nếu nhập sai chữ
-                        ans = 0;
-                    }
-                } while (ans < 1 || ans > 4);
-                
-                // 4. Gửi về server
-                snprintf(sendBuff, sizeof(sendBuff), "ANSWER %d\n", ans);
-                send(sockfd, sendBuff, strlen(sendBuff), 0);
-                printf("Da gui dap an: %d. Dang cho ket qua...\n", ans);
+            printf("\n[QUESTION]: %s\n", question);
+            printf("1. %s\n", op1);
+            printf("2. %s\n", op2);
+            printf("3. %s\n", op3);
+            printf("4. %s\n", op4);
+
+            int ans = 0;
+            do {
+                printf("Enter your answer (1-4): ");
+                if (scanf("%d", &ans) != 1) {
+                    while (getchar() != '\n');
+                    ans = 0;
+                }
+            } while (ans < 1 || ans > 4);
+
+            snprintf(sendBuff, sizeof(sendBuff), "ANSWER %d\n", ans);
+            send(sockfd, sendBuff, strlen(sendBuff), 0);
+
+            printf("Da gui dap an. Dang cho ket qua...\n");
+        }
+
+        // ===== RESULT =====
+        else if (strncmp(recvBuff, "RESULT|", 7) == 0) {
+
+            strtok(recvBuff, "|");
+            char *winner = strtok(NULL, "|");
+
+            if (strcmp(winner, "NONE") == 0) {
+                puts("Khong co nguoi choi nao tra loi dung!");
             }
-        } 
+            else if (strcmp(winner, my_username) == 0) {
+                puts("Ban la nguoi choi chinh!");
+            }
+            else {
+                puts("Ban da vao luot choi chinh.");
+            }
+
+            // ket th�c 1 c�u hoi -> quay lai menu
+            return;
+        }
+
         else {
-            // Có thể là thông báo kết quả hoặc loại khỏi cuộc chơi
-            // Chúng ta sẽ xử lý ở Bước 4 (Xử lý kết quả)
             printf("[SERVER]: %s\n", recvBuff);
-            // Nếu nhận được mã kết thúc game thì break;
         }
     }
 }
 
+// ================= MAIN =================
 int main(int argc, char *argv[]) {
     if (argc != 3) {
-        fprintf(stderr,"Usage: %s <ServerIP> <Port>\n", argv[0]);
+        printf("Usage: %s <ServerIP> <Port>\n", argv[0]);
         return 1;
     }
-
-    const char *ip = argv[1];
-    int port = atoi(argv[2]);
 
     int sockfd;
     struct sockaddr_in servaddr;
     char sendBuff[MAXLINE], recvBuff[MAXLINE];
-
+    char username[50] = "";
+    char password[50];
     int logged_in = 0;
 
-    // create socket
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("socket");
-        return 1;
-    }
-
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
     servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(port);
-    if (inet_pton(AF_INET, ip, &servaddr.sin_addr)<=0) {
-        perror("inet_pton");
-        close(sockfd);
-        return 1;
-    }
+    servaddr.sin_port = htons(atoi(argv[2]));
+    inet_pton(AF_INET, argv[1], &servaddr.sin_addr);
 
-    if (connect(sockfd,(struct sockaddr*)&servaddr,sizeof(servaddr))<0) {
-        perror("connect");
-        close(sockfd);
-        return 1;
-    }
+    connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr));
 
-    // greeting code
-    ssize_t n = recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
-    if (n > 0) {
-        recvBuff[n] = 0;
-        explain_code(recvBuff);
-    }
-
-    int choice;
+    recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
+    explain_code(recvBuff);
 
     while (1) {
-
+        int choice;
         menu(logged_in);
+        scanf("%d", &choice);
+        while (getchar() != '\n');
 
-        if (scanf("%d", &choice) != 1) break;
-        while (getchar()!='\n'); // clear stdin
-
-        //   MENU CHUA �ANG NHAP
+        // ===== NOT LOGIN =====
         if (!logged_in) {
 
-            if (choice == 1) { // REGISTER
-                char username[50], password[50];
-                printf("Username: "); scanf("%49s", username); while(getchar()!='\n');
-                printf("Password: "); scanf("%49s", password); while(getchar()!='\n');
-
-                snprintf(sendBuff,sizeof(sendBuff),"REGISTER %s %s", username, password);
-                send(sockfd, sendBuff, strlen(sendBuff),0);
-
-                n = recv(sockfd, recvBuff, sizeof(recvBuff)-1,0);
-                recvBuff[n] = 0;
-                explain_code(recvBuff);
+            if (choice == 1) {
+                printf("Username: "); scanf("%49s", username);
+                printf("Password: "); scanf("%49s", password);
+                snprintf(sendBuff, sizeof(sendBuff),
+                         "REGISTER %s %s", username, password);
             }
-
-            else if (choice == 2) { // LOGIN
-                char username[50], password[50];
-                printf("Username: "); scanf("%49s", username); while(getchar()!='\n');
-                printf("Password: "); scanf("%49s", password); while(getchar()!='\n');
-
-                snprintf(sendBuff,sizeof(sendBuff),"LOGIN %s %s", username, password);
-                send(sockfd, sendBuff, strlen(sendBuff),0);
-
-                n = recv(sockfd, recvBuff, sizeof(recvBuff)-1,0);
-                recvBuff[n] = 0;
-                explain_code(recvBuff);
-
-                if (strcmp(recvBuff,"110") == 0) {
-                    logged_in = 1; // login succeed
-                }
+            else if (choice == 2) {
+                printf("Username: "); scanf("%49s", username);
+                printf("Password: "); scanf("%49s", password);
+                snprintf(sendBuff, sizeof(sendBuff),
+                         "LOGIN %s %s", username, password);
             }
+            else break;
 
-            else if (choice == 3) {
-                puts("Exit client.");
-                break;
-            }
+            send(sockfd, sendBuff, strlen(sendBuff), 0);
+            recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
+            explain_code(recvBuff);
 
-            else puts("Invalid choice!");
+            if (strcmp(recvBuff,"110") == 0)
+                logged_in = 1;
         }
 
-        // MENU �� �ANG NHAP
+        // ===== LOGGED IN =====
         else {
-        	
             if (choice == 1) { // JOIN
-                snprintf(sendBuff,sizeof(sendBuff),"JOIN");
-                send(sockfd, sendBuff, strlen(sendBuff),0);
+                send(sockfd, "JOIN", 4, 0);
 
-                // ==== LAN 1: nhan 200 hoac loi ====
-                n = recv(sockfd, recvBuff, sizeof(recvBuff)-1,0);
-                recvBuff[n] = 0;
+                // LAN 1: nhan 200 / loi
+                recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
                 explain_code(recvBuff);
-                
-                if (strcmp(recvBuff,"210") == 0) {
-                    puts("Dang bat dau tro choi...");
-                    gamePlay(sockfd);
-                    continue;
-                }
-                if (strcmp(recvBuff,"200") != 0) {
-                    continue;
-                }
 
-                // recv() se block den khi server gui 202 hoac 210
-                n = recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
-                recvBuff[n] = 0;
+                if (strcmp(recvBuff,"200") != 0)
+                    continue;
+
+                // LAN 2: BLOCK cho 210 / 202
+                recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
                 explain_code(recvBuff);
+
                 if (strcmp(recvBuff,"210") == 0) {
-                    puts("Dang bat dau tro choi...");
-                    gamePlay(sockfd);
+                    gamePlay(sockfd, username);
                 }
-               // Neu l� 202, client tu in "Kh�ng du nguoi choi"
-               // v� sau d� tu quay lai menu (nhu v�ng lap ch�nh)
             }
-            
             else if (choice == 2) { // LOGOUT
-                snprintf(sendBuff,sizeof(sendBuff),"LOGOUT");
-                send(sockfd, sendBuff, strlen(sendBuff),0);
-
-                n = recv(sockfd, recvBuff, sizeof(recvBuff)-1,0);
-                recvBuff[n] = 0;
+                send(sockfd, "LOGOUT", 6, 0);
+                recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
                 explain_code(recvBuff);
-
-                if (strcmp(recvBuff,"120") == 0)
-                    logged_in = 0;
+                logged_in = 0;
             }
-            
-            else if (choice == 3) {
-                puts("Exit client.");
-                break;
-            }
-            else puts("Invalid choice!");
+            else break;
         }
     }
+
     close(sockfd);
     return 0;
 }
-
 
