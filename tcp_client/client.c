@@ -29,7 +29,7 @@ void explain_code(const char *code) {
     else printf("Server returned code: %s\n", code);
 }
 
-// menu cho 2 trang th�i: d� login / chua login
+// menu cho 2 trang th�i: d� login / chua login
 void menu(int logged_in) {
     puts("\n MENU ");
     if (!logged_in) {
@@ -42,6 +42,66 @@ void menu(int logged_in) {
         puts("2) LOGOUT");
         puts("3) EXIT");
         printf("Select [1-3]: ");
+    }
+}
+
+void gamePlay(int sockfd) {
+    char recvBuff[MAXLINE];
+    char sendBuff[MAXLINE];
+    int n;
+
+    while (1) {
+        printf("\n--- WAITING QUESTION FROM SERVER ---\n");
+        
+        // 1. Chờ nhận câu hỏi (Blocking)
+        n = recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
+        if (n <= 0) {
+            puts("Unable to connect to server!");
+            return;
+        }
+        recvBuff[n] = 0;
+
+        // 2. Kiểm tra xem có phải gói tin QUES không?
+        if (strncmp(recvBuff, "QUES|", 5) == 0) {
+            // Tách chuỗi theo ký tự '|'
+            // Format: QUES|Cau hoi|Op1|Op2|Op3|Op4
+            char *token = strtok(recvBuff, "|"); // Lấy chữ QUES (bỏ qua)
+            
+            char *question = strtok(NULL, "|");
+            char *op1 = strtok(NULL, "|");
+            char *op2 = strtok(NULL, "|");
+            char *op3 = strtok(NULL, "|");
+            char *op4 = strtok(NULL, "\n"); // Cái cuối cùng có thể dính \n
+
+            if (question && op1 && op2 && op3 && op4) {
+                printf("\n[QUESTION]: %s\n", question);
+                printf("1. %s\n", op1);
+                printf("2. %s\n", op2);
+                printf("3. %s\n", op3);
+                printf("4. %s\n", op4);
+                
+                // 3. Nhập câu trả lời
+                int ans;
+                do {
+                    printf("Enter your answer (1-4): ");
+                    if (scanf("%d", &ans) != 1) {
+                        while(getchar() != '\n'); // Xóa bộ đệm nếu nhập sai chữ
+                        ans = 0;
+                    }
+                } while (ans < 1 || ans > 4);
+                
+                // 4. Gửi về server
+                snprintf(sendBuff, sizeof(sendBuff), "ANSWER %d\n", ans);
+                send(sockfd, sendBuff, strlen(sendBuff), 0);
+                printf("Da gui dap an: %d. Dang cho ket qua...\n", ans);
+            }
+        } 
+        else {
+            // Có thể là thông báo kết quả hoặc loại khỏi cuộc chơi
+            // Chúng ta sẽ xử lý ở Bước 4 (Xử lý kết quả)
+            printf("[SERVER]: %s\n", recvBuff);
+            // Nếu nhận được mã kết thúc game thì break;
+        }
     }
 }
 
@@ -96,7 +156,7 @@ int main(int argc, char *argv[]) {
         if (scanf("%d", &choice) != 1) break;
         while (getchar()!='\n'); // clear stdin
 
-        //   MENU CHUA �ANG NHAP
+        //   MENU CHUA �ANG NHAP
         if (!logged_in) {
 
             if (choice == 1) { // REGISTER
@@ -137,32 +197,37 @@ int main(int argc, char *argv[]) {
             else puts("Invalid choice!");
         }
 
-        // MENU �� �ANG NHAP
+        // MENU �� �ANG NHAP
         else {
         	
             if (choice == 1) { // JOIN
-              snprintf(sendBuff,sizeof(sendBuff),"JOIN");
-              send(sockfd, sendBuff, strlen(sendBuff),0);
+                snprintf(sendBuff,sizeof(sendBuff),"JOIN");
+                send(sockfd, sendBuff, strlen(sendBuff),0);
 
-              // ==== LAN 1: nhan 200 hoac loi ====
-              n = recv(sockfd, recvBuff, sizeof(recvBuff)-1,0);
-              recvBuff[n] = 0;
-              explain_code(recvBuff);
-              // Neu kh�ng phai 200 (JOIN OK) th� quay lai menu lu�n
-              if (strcmp(recvBuff,"200") != 0) {
-                continue;
-              }
+                // ==== LAN 1: nhan 200 hoac loi ====
+                n = recv(sockfd, recvBuff, sizeof(recvBuff)-1,0);
+                recvBuff[n] = 0;
+                explain_code(recvBuff);
+                
+                if (strcmp(recvBuff,"210") == 0) {
+                    puts("Dang bat dau tro choi...");
+                    gamePlay(sockfd);
+                    continue;
+                }
+                if (strcmp(recvBuff,"200") != 0) {
+                    continue;
+                }
 
-              // recv() se block den khi server gui 202 hoac 210
-              n = recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
-              recvBuff[n] = 0;
-              explain_code(recvBuff);
-              if (strcmp(recvBuff,"210") == 0) {
-                puts("Dang bat dau tro choi...");
-                // TODO gamePlay();
-              }
-               // Neu l� 202, client tu in "Kh�ng du nguoi choi"
-               // v� sau d� tu quay lai menu (nhu v�ng lap ch�nh)
+                // recv() se block den khi server gui 202 hoac 210
+                n = recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
+                recvBuff[n] = 0;
+                explain_code(recvBuff);
+                if (strcmp(recvBuff,"210") == 0) {
+                    puts("Dang bat dau tro choi...");
+                    gamePlay(sockfd);
+                }
+               // Neu l� 202, client tu in "Kh�ng du nguoi choi"
+               // v� sau d� tu quay lai menu (nhu v�ng lap ch�nh)
             }
             
             else if (choice == 2) { // LOGOUT

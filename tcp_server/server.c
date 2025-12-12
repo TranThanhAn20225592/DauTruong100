@@ -15,6 +15,7 @@
 #include "join.h"
 #include "player.h"
 #include "question.h"
+#include "game.h"
 
 #define PORT 5550
 #define BACKLOG 20
@@ -96,10 +97,12 @@ int main() {
                     addPlayer(sock, name);
                     
                     // Gửi thông báo Bắt đầu (Thêm \n để an toàn)
-                    send(sock, "210\n", 4, 0);
+                    send(sock, "210", 4, 0);
                 }   
             gameState = 1; //Mode change: GAME START
             initWaitingRoom();
+            sleep(1);
+            sendQuestionToAllPlayers(0);
         // Reset ph�ng sau khi gui m�
         } else if (timeoutCode == 202) {
             // Trường hợp không đủ người -> Giải tán
