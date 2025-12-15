@@ -84,19 +84,15 @@ int main() {
 
     while (1) {
 
-        // Kiem tra thoi gian cho trong phong cho JOIN
         int timeoutCode = checkJoinTimeout();
 
-        // Du nguoi choi -> bat dau game
         if (timeoutCode == 210) {
             printf("GAME START! Transferring players...\n");
 
-            // Gui ma bat dau cho tat ca client trong phong cho
             for (int j = 0; j < waitingCount; j++) {
                 int sock = waitingRoom[j];
-                char *name = "Unknown";
+                char *name = NULL;
 
-                // Tim ten nguoi choi tu danh sach client
                 for (int k = 0; k <= maxi; k++) {
                     if (client[k] == sock) {
                         name = client_user[k];
@@ -104,26 +100,21 @@ int main() {
                     }
                 }
 
-                // Them nguoi choi vao danh sach thi dau
-                addPlayer(sock, name);
-
-                // Gui ma bat dau game
-                send(sock, "210", 4, 0);
+                if (name != NULL){
+                    addPlayer(sock, name);
+                    send(sock, "210", 4, 0);
+                }
             }
 
-            // Chuyen trang thai sang dang choi
             gameState = 1;
             initWaitingRoom();
-
             sleep(1);
-
-            // Gui cau hoi dau tien cho tat ca nguoi choi
             sendQuestionToAllPlayers(0);
 
         // Khong du nguoi choi -> huy phong cho
         } else if (timeoutCode == 202) {
             for (int j = 0; j < waitingCount; j++) {
-                send(waitingRoom[j], "202\n", 4, 0);
+                send(waitingRoom[j], "202", 4, 0);
             }
             initWaitingRoom();
         }

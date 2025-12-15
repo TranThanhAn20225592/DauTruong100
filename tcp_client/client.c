@@ -6,7 +6,6 @@
 
 #define MAXLINE 4096
 
-// ================= EXPLAIN SERVER CODE =================
 void explain_code(const char *code) {
     if (strcmp(code,"900") == 0) puts("Connected to server");
     else if (strcmp(code,"100") == 0) puts("Register successful");
@@ -18,16 +17,26 @@ void explain_code(const char *code) {
     else if (strcmp(code,"120") == 0) puts("Logout successful");
     else if (strcmp(code,"121") == 0) puts("Logout failed");
 
-    else if (strcmp(code,"200") == 0) puts("JOIN OK - Dang cho nguoi choi khac...");
-    else if (strcmp(code,"201") == 0) puts("Phong cho da day!");
-    else if (strcmp(code,"202") == 0) puts("Khong du nguoi de bat dau tro choi!");
-    else if (strcmp(code,"210") == 0) puts("Tro choi bat dau!");
+    else if (strcmp(code,"200") == 0) puts("JOIN OK - Waiting for other players...");
+    else if (strcmp(code,"201") == 0) puts("Player limit exceeded!");
+    else if (strcmp(code,"202") == 0) puts("Insufficient number of player!");
+    else if (strcmp(code,"203") == 0) puts("Cannot JOIN during an ongoing game!");
+    else if (strcmp(code,"210") == 0) puts("GAME START!");
+
+    else if (strcmp(code,"300") == 0) puts("Answer received");
+    else if (strcmp(code,"301") == 0) puts("You are not in the game");
+    else if (strcmp(code,"302") == 0) puts("You have already answered");
+
+    else if (strcmp(code,"299") == 0) puts("You must login before joining a game");
+
+
+    
     else puts(code);
 }
 
-// ================= MENU =================
+// MENU
 void menu(int logged_in) {
-    puts("\n===== MENU =====");
+    puts("\n MENU ");
     if (!logged_in) {
         puts("1) REGISTER");
         puts("2) LOGIN");
@@ -40,7 +49,7 @@ void menu(int logged_in) {
     printf("Select: ");
 }
 
-// ================= GAME PLAY =================
+//GAME PLAY
 void gamePlay(int sockfd, const char *my_username) {
     char recvBuff[MAXLINE];
     char sendBuff[MAXLINE];
@@ -48,7 +57,7 @@ void gamePlay(int sockfd, const char *my_username) {
 
     while (1) {
 
-        // BLOCK ch? server (QUES / RESULT)
+        // BLOCK server (QUES / RESULT)
         n = recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
         if (n <= 0) {
             puts("Disconnected from server!");
@@ -56,7 +65,7 @@ void gamePlay(int sockfd, const char *my_username) {
         }
         recvBuff[n] = 0;
 
-        // ===== QUESTION =====
+        //QUESTION 
         if (strncmp(recvBuff, "QUES|", 5) == 0) {
 
             strtok(recvBuff, "|");
@@ -84,26 +93,24 @@ void gamePlay(int sockfd, const char *my_username) {
             snprintf(sendBuff, sizeof(sendBuff), "ANSWER %d\n", ans);
             send(sockfd, sendBuff, strlen(sendBuff), 0);
 
-            printf("Da gui dap an. Dang cho ket qua...\n");
+            printf("Answer sent. Waiting for result...\n");
         }
 
-        // ===== RESULT =====
+        //RESULT
         else if (strncmp(recvBuff, "RESULT|", 7) == 0) {
 
             strtok(recvBuff, "|");
             char *winner = strtok(NULL, "|");
 
             if (strcmp(winner, "NONE") == 0) {
-                puts("Khong co nguoi choi nao tra loi dung!");
+                puts("No winner for this question.");
             }
             else if (strcmp(winner, my_username) == 0) {
-                puts("Ban la nguoi choi chinh!");
+                puts("You are the main player!");
             }
             else {
-                puts("Ban da vao luot choi chinh.");
+                puts("You are the sub player.");
             }
-
-            // ket thúc 1 câu hoi -> quay lai menu
             return;
         }
 
@@ -113,7 +120,7 @@ void gamePlay(int sockfd, const char *my_username) {
     }
 }
 
-// ================= MAIN =================
+//MAIN 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
         printf("Usage: %s <ServerIP> <Port>\n", argv[0]);
@@ -123,7 +130,7 @@ int main(int argc, char *argv[]) {
     int sockfd;
     struct sockaddr_in servaddr;
     char sendBuff[MAXLINE], recvBuff[MAXLINE];
-    char username[50] = "";
+    char username[50];
     char password[50];
     int logged_in = 0;
 
@@ -143,7 +150,7 @@ int main(int argc, char *argv[]) {
         scanf("%d", &choice);
         while (getchar() != '\n');
 
-        // ===== NOT LOGIN =====
+        // NOT LOGGED IN
         if (!logged_in) {
 
             if (choice == 1) {
@@ -158,7 +165,13 @@ int main(int argc, char *argv[]) {
                 snprintf(sendBuff, sizeof(sendBuff),
                          "LOGIN %s %s", username, password);
             }
-            else break;
+            else if (choice == 3) {
+                printf("Exiting...\n");
+                break;
+            } else {
+                printf("Invalid choice\n");
+                continue;
+            }
 
             send(sockfd, sendBuff, strlen(sendBuff), 0);
             recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
@@ -168,19 +181,17 @@ int main(int argc, char *argv[]) {
                 logged_in = 1;
         }
 
-        // ===== LOGGED IN =====
+        // LOGGED IN
         else {
-            if (choice == 1) { // JOIN
+            if (choice == 1) {
                 send(sockfd, "JOIN", 4, 0);
 
-                // LAN 1: nhan 200 / loi
                 recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
                 explain_code(recvBuff);
 
                 if (strcmp(recvBuff,"200") != 0)
                     continue;
 
-                // LAN 2: BLOCK cho 210 / 202
                 recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
                 explain_code(recvBuff);
 
@@ -188,13 +199,19 @@ int main(int argc, char *argv[]) {
                     gamePlay(sockfd, username);
                 }
             }
-            else if (choice == 2) { // LOGOUT
+            else if (choice == 2) {
                 send(sockfd, "LOGOUT", 6, 0);
                 recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
                 explain_code(recvBuff);
                 logged_in = 0;
             }
-            else break;
+            else if (choice == 3) {
+                printf("Exiting...\n");
+                break;
+            } else {
+                printf("Invalid choice\n");
+                continue;
+            }
         }
     }
 

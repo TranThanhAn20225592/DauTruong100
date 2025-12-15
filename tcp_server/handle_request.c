@@ -54,7 +54,6 @@ int handleRequest(
     int cnt = sscanf(buff, "%s %s %s", cmd, arg1, arg2);
     int code = 199; // default: invalid
 
-    // REGISTER
     if (strcmp(cmd, "REGISTER") == 0) {
         char *u = arg1;
         char *p = arg2;
@@ -62,7 +61,6 @@ int handleRequest(
             code = registerAccount(u, p);
     }
 
-    // LOGIN
     else if (strcmp(cmd, "LOGIN") == 0) {
         char *u = arg1;
         char *p = arg2;
@@ -79,7 +77,6 @@ int handleRequest(
         }
     }
 
-    // LOGOUT
     else if (strcmp(cmd, "LOGOUT") == 0) {
         if (!logged_in[i]) code = 121;
         else {
@@ -91,15 +88,14 @@ int handleRequest(
             }
         }
     }    
-    // JOIN
+
     else if (strcmp(cmd, "JOIN") == 0) {
-        if (!logged_in[i]) return 299; // phai dang 
-        if (gameState == 1) return 203; // khong the join khi dang choi
-        code = handleJoin(client_fd);  // tra: 200,201,210,299
+        if (!logged_in[i]) return 299; 
+        if (gameState == 1) return 203;
+        code = handleJoin(client_fd);  
         return code;
     } 
     
-    //ANSWER
     else if (strcmp(cmd, "ANSWER") == 0) {
 
         if (cnt == 2) {
@@ -124,8 +120,8 @@ int handleRequest(
             int allAnswered = 1;
             for (int i = 0; i < playerCount; i++) {
                 if (players[i].state == 1 && !players[i].answered) {
-                   allAnswered = 0;
-                   break;
+                    allAnswered = 0;
+                    break;
                 }
             }
 
@@ -143,13 +139,8 @@ int handleRequest(
                     }
                 }
 
-                // set role
-                for (int i = 0; i < playerCount; i++)
-                players[i].role = 0;
-
-                if (winner != -1)
-                players[winner].role = 1;
-
+                for (int i = 0; i < playerCount; i++)  players[i].role = 0;
+                if (winner != -1)  players[winner].role = 1;
                 broadcastResult(winner);
             }
 

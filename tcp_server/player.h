@@ -9,13 +9,13 @@ typedef struct {
     int sockfd;
     char username[50];
     int score;
-    int state; //0: eliminated; 1: alive
-    int role; //0: sub; 1: main
+    int state; //0: bi loai; 1: con song
+    int role; //0: phu; 1: chinh
 
     int currentAnswer;
-    int answered;              // 0: chưa trả lời, 1: đã trả lời
-    int isCorrect;             // 0: sai, 1: đúng
-    long response_time_ms;     // thời gian trả lời (ms)
+    int answered;              // 0: chua tra loi, 1: da tra loi
+    int isCorrect;             // 0: sai, 1: dung
+    long response_time_ms;     // thoi gian tra loi (ms)
 
 } Player;
 

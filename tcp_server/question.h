@@ -7,7 +7,7 @@ typedef struct {
     int correct_answer; //1: A, 2: B, 3: C, 4: D
 } Question;
 
-extern Question *questions; // Mảng động hoặc tĩnh tùy ý
+extern Question *questions; 
 extern int questionCount;
 
 int loadQuestions(const char *filename);

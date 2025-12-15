@@ -33,7 +33,7 @@ void sendQuestionToAllPlayers(int questionId) {
     printf("Sending question %d to all players.\n", questionId);
 
     for (int i = 0; i < playerCount; i++) {
-        if (players[i].state == 1) { // Chi gui cho nguoi choi con song
+        if (players[i].state == 1) {
             send(players[i].sockfd, buffer, strlen(buffer), 0);
         }
     }

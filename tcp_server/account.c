@@ -74,7 +74,7 @@ int loginAccount(const char *username, const char *password) {
     if (strcmp(accounts[idx].password, password) != 0)
         return 111; // sai password
 
-    return 110; // login thành công
+    return 110; // login thanh cong
 }
 
 // LOGOUT

@@ -23,17 +23,15 @@ int loadQuestions(const char *filename) {
         if (!fgets(list[questionCount].text, sizeof(list[questionCount].text), f)) break;
 
         list[questionCount].text[strcspn(list[questionCount].text, "\n")] = 0;
-
         for (int i = 0; i < 4; i++) {
             if (!fgets(list[questionCount].options[i], sizeof(list[questionCount].options[i]), f)) break;
 
             list[questionCount].options[i][strcspn(list[questionCount].options[i], "\n")] = 0;
         }
 
-        // Doc dap an dung
         if (!fgets(buffer, sizeof(buffer), f)) break;
-        list[questionCount].correct_answer = atoi(buffer);
 
+        list[questionCount].correct_answer = atoi(buffer);
         questionCount++;
     }
 
