@@ -39,11 +39,7 @@ void explain_code(const char *code) {
     else if (strcmp(code,"420") == 0) puts("You win the game!");
     else if (strcmp(code,"421") == 0) puts("No winner this round");
 
-
     else if (strcmp(code,"299") == 0) puts("You must login before joining a game");
-
-
-    
     else puts(code);
 }
 
@@ -67,6 +63,7 @@ void gamePlay(int sockfd, const char *my_username) {
     char recvBuff[MAXLINE];
     char sendBuff[MAXLINE];
     int n;
+    int eliminated = 0;
 
     while (1) {
 
@@ -145,11 +142,9 @@ void gamePlay(int sockfd, const char *my_username) {
 
             // SCORE
             else if (strncmp(line, "SCORE|YOU|", 10) == 0) {
-
                 strtok(line, "|"); // SCORE
                 strtok(NULL, "|"); // YOU
                 char *score = strtok(NULL, "|");
-
                 printf("Your score: %s\n", score);
             }
 
@@ -158,6 +153,11 @@ void gamePlay(int sockfd, const char *my_username) {
                 // neu server gui ma (400–4xx)
                 if (isdigit((unsigned char)line[0])) {
                     explain_code(line);
+                    // neu bi loai -> thoát gamePlay
+                    if (strcmp(line, "410") == 0) {
+                       eliminated = 1;
+                       return;   // quay ve menu
+                    }
                 }
                 // message khác
                 else if (strcmp(line, "300") != 0) {
