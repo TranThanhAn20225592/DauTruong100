@@ -2,20 +2,27 @@
 #include <string.h>
 #include <sys/time.h>
 #include <limits.h>
-#include <stdlib.h> 
+#include <stdlib.h>
+
 #include "handle_request.h"
 #include "account.h"
 #include "join.h"
 #include "player.h"
 #include "game.h"
-#include "question.h" 
+#include "question.h"
 
-
+// GLOBAL
 char onlineUser[1000][50];
 int onlineCount = 0;
-
 extern int gameState;
 
+// 0: chon main, 1: luot choi chính 
+int roundPhase = 0;
+
+// dem so nguoi da tra loi trong luot hien tai 
+int activeAnswerCount = 0;
+
+// USER ONLINE
 int isUserOnline(char *username) {
     for (int i = 0; i < onlineCount; i++) {
         if (strcmp(onlineUser[i], username) == 0)
@@ -39,9 +46,11 @@ void setUserOffline(char *username) {
     }
 }
 
+// MAIN HANDLER
+
 int handleRequest(
     char *buff,
-    int i,
+    int idx,
     int client_fd,
     int logged_in[],
     char client_user[][50]
@@ -52,80 +61,87 @@ int handleRequest(
     char arg2[50] = {0};
 
     int cnt = sscanf(buff, "%s %s %s", cmd, arg1, arg2);
-    int code = 199; // default: invalid
+    int code = 199;
 
+    // REGISTER
     if (strcmp(cmd, "REGISTER") == 0) {
-        char *u = arg1;
-        char *p = arg2;
         if (cnt == 3)
-            code = registerAccount(u, p);
+            code = registerAccount(arg1, arg2);
     }
 
+    // LOGIN
     else if (strcmp(cmd, "LOGIN") == 0) {
-        char *u = arg1;
-        char *p = arg2;
         if (cnt == 3) {
-            if (isUserOnline(u)) code = 113;
-            else {
-                code = loginAccount(u, p);
+            if (isUserOnline(arg1)) {
+                code = 113;
+            } else {
+                code = loginAccount(arg1, arg2);
                 if (code == 110) {
-                    logged_in[i] = 1;
-                    strcpy(client_user[i], u);
-                    setUserOnline(u);
+                    logged_in[idx] = 1;
+                    strcpy(client_user[idx], arg1);
+                    setUserOnline(arg1);
                 }
             }
         }
     }
 
+    // LOGOUT
     else if (strcmp(cmd, "LOGOUT") == 0) {
-        if (!logged_in[i]) code = 121;
-        else {
-            code = logoutAccount(client_user[i]);
+        if (!logged_in[idx]) {
+            code = 121;
+        } else {
+            code = logoutAccount(client_user[idx]);
             if (code == 120) {
-                setUserOffline(client_user[i]);
-                logged_in[i] = 0;
-                client_user[i][0] = 0;
+                setUserOffline(client_user[idx]);
+                logged_in[idx] = 0;
+                client_user[idx][0] = 0;
             }
         }
-    }    
+    }
 
+    // JOIN
     else if (strcmp(cmd, "JOIN") == 0) {
-        if (!logged_in[i]) return 299; 
+        if (!logged_in[idx]) return 299;
         if (gameState == 1) return 203;
-        code = handleJoin(client_fd);  
-        return code;
-    } 
-    
-    else if (strcmp(cmd, "ANSWER") == 0) {
+        return handleJoin(client_fd);
+    }
 
-        if (cnt == 2) {
-           int ans_val = atoi(arg1);
-           Player *p = getPlayer(client_fd);
+    // ANSWER
+    else if (strcmp(cmd, "ANSWER") == 0 && cnt == 2) {
 
-           if (p == NULL || p->state != 1) return 301;
-           if (p->answered) return 302;
+        int ans_val = atoi(arg1);
+        Player *p = getPlayer(client_fd);
 
-           struct timeval now;
-           gettimeofday(&now, NULL);
+        if (!p || p->state != 1) return 301;
+        if (p->answered) return 302;
 
-            long elapsed =
-               (now.tv_sec - question_start_time.tv_sec) * 1000 +
-               (now.tv_usec - question_start_time.tv_usec) / 1000;
+        struct timeval now;
+        gettimeofday(&now, NULL);
 
-            p->currentAnswer = ans_val;
-            p->answered = 1;
-            p->response_time_ms = elapsed;
-            p->isCorrect = (ans_val == getCorrectAnswer());
+        long elapsed =
+            (now.tv_sec - question_start_time.tv_sec) * 1000 +
+            (now.tv_usec - question_start_time.tv_usec) / 1000;
 
-            int allAnswered = 1;
-            for (int i = 0; i < playerCount; i++) {
-                if (players[i].state == 1 && !players[i].answered) {
-                    allAnswered = 0;
-                    break;
-                }
-            }
+        p->currentAnswer = ans_val;
+        p->answered = 1;
+        p->response_time_ms = elapsed;
+        p->isCorrect = (ans_val == getCorrectAnswer());
 
-            if (allAnswered) {
+        activeAnswerCount++;
+
+        // ÐEM SO PLAYER CON SONG
+        int aliveCount = 0;
+        for (int i = 0; i < playerCount; i++) {
+            if (players[i].state == 1)
+                aliveCount++;
+        }
+
+        // TAT CA ÐA TRA LOI
+        if (activeAnswerCount == aliveCount) {
+
+            // CHON MAIN PLAYER  
+            if (roundPhase == 0) {
+
                 int winner = -1;
                 long best_time = LONG_MAX;
 
@@ -139,17 +155,37 @@ int handleRequest(
                     }
                 }
 
-                for (int i = 0; i < playerCount; i++)  players[i].role = 0;
-                if (winner != -1)  players[winner].role = 1;
+                for (int i = 0; i < playerCount; i++)
+                    players[i].role = 0;
+
+                if (winner != -1)
+                    players[winner].role = 1;
+
                 broadcastResult(winner);
+
+                if (winner != -1) {
+                    roundPhase = 1;
+                    startMainRound();
+                }
             }
 
-            return 300;
-        }
-    }
+            // MAIN GAME 
+            else if (roundPhase == 1) {
 
-    else {
-        code = 199;
+                processMainRoundResult();
+                broadcastScores();
+                currentQuestionId++;
+
+                if (currentQuestionId < questionCount) {
+                    sendQuestionToAllPlayers(currentQuestionId);
+                } else {
+                    printf("[GAME] OUT OF QUESTIONS - END GAME\n");
+                    gameState = 0;
+                }
+            }
+        }
+
+        return 300;
     }
 
     return code;

@@ -16,6 +16,9 @@ typedef struct {
     int answered;              // 0: chua tra loi, 1: da tra loi
     int isCorrect;             // 0: sai, 1: dung
     long response_time_ms;     // thoi gian tra loi (ms)
+    long time_limit_ms;    
+
+    int skip_left;
 
 } Player;
 
