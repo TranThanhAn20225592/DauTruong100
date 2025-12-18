@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <ctype.h>
 
 #define MAXLINE 4096
 
@@ -26,6 +27,18 @@ void explain_code(const char *code) {
     else if (strcmp(code,"300") == 0) puts("Answer received");
     else if (strcmp(code,"301") == 0) puts("You are not in the game");
     else if (strcmp(code,"302") == 0) puts("You have already answered");
+    
+    else if (strcmp(code,"400") == 0) puts("Answer correct");
+    else if (strcmp(code,"401") == 0) puts("Answer wrong");
+    else if (strcmp(code,"402") == 0) puts("Answer timeout");
+    else if (strcmp(code,"410") == 0) puts("You have been eliminated");
+    else if (strcmp(code,"411") == 0) puts("You stay in the game");
+    else if (strcmp(code,"412") == 0) puts("You become MAIN");
+    else if (strcmp(code,"413") == 0) puts("Main answered correctly");
+    else if (strcmp(code,"414") == 0) puts("Main answered wrong");
+    else if (strcmp(code,"420") == 0) puts("You win the game!");
+    else if (strcmp(code,"421") == 0) puts("No winner this round");
+
 
     else if (strcmp(code,"299") == 0) puts("You must login before joining a game");
 
@@ -57,68 +70,106 @@ void gamePlay(int sockfd, const char *my_username) {
 
     while (1) {
 
-        // BLOCK server (QUES / RESULT)
-        n = recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
+        n = recv(sockfd, recvBuff, sizeof(recvBuff) - 1, 0);
         if (n <= 0) {
             puts("Disconnected from server!");
             return;
         }
         recvBuff[n] = 0;
 
-        //QUESTION 
-        if (strncmp(recvBuff, "QUES|", 5) == 0) {
+        // TÁCH NHIEU MESSAGE THEO \n 
+        char *saveptr;
+        char *line = strtok_r(recvBuff, "\n", &saveptr);
 
-            strtok(recvBuff, "|");
-            char *question = strtok(NULL, "|");
-            char *op1 = strtok(NULL, "|");
-            char *op2 = strtok(NULL, "|");
-            char *op3 = strtok(NULL, "|");
-            char *op4 = strtok(NULL, "\n");
+        while (line != NULL) {
 
-            printf("\n[QUESTION]: %s\n", question);
-            printf("1. %s\n", op1);
-            printf("2. %s\n", op2);
-            printf("3. %s\n", op3);
-            printf("4. %s\n", op4);
+            // QUESTION 
+            if (strncmp(line, "QUES|", 5) == 0) {
 
-            int ans = 0;
-            do {
-                printf("Enter your answer (1-4): ");
-                if (scanf("%d", &ans) != 1) {
-                    while (getchar() != '\n');
-                    ans = 0;
+                char tmp[MAXLINE];
+                strncpy(tmp, line, sizeof(tmp));
+                tmp[sizeof(tmp) - 1] = 0;
+
+                strtok(tmp, "|");
+                char *question = strtok(NULL, "|");
+                char *op1 = strtok(NULL, "|");
+                char *op2 = strtok(NULL, "|");
+                char *op3 = strtok(NULL, "|");
+                char *op4 = strtok(NULL, "|");
+
+                printf("\n[QUESTION]: %s\n", question);
+                printf("1. %s\n", op1);
+                printf("2. %s\n", op2);
+                printf("3. %s\n", op3);
+                printf("4. %s\n", op4);
+
+                int ans = 0;
+                do {
+                    printf("Enter your answer (1-4): ");
+                    if (scanf("%d", &ans) != 1) {
+                        int c;
+                        while ((c = getchar()) != '\n' && c != EOF) {}
+                        ans = 0;
+                    }
+                } while (ans < 1 || ans > 4);
+
+                int c;
+                while ((c = getchar()) != '\n' && c != EOF) {}
+
+                snprintf(sendBuff, sizeof(sendBuff), "ANSWER %d\n", ans);
+                send(sockfd, sendBuff, strlen(sendBuff), 0);
+
+                puts("Answer sent. Waiting for result...");
+            }
+
+            //CHON MAIN (STAGE 1)
+            else if (strncmp(line, "RESULT|", 7) == 0) {
+
+                char tmp[MAXLINE];
+                strncpy(tmp, line, sizeof(tmp));
+                tmp[sizeof(tmp) - 1] = 0;
+
+                strtok(tmp, "|");
+                char *winner = strtok(NULL, "|");
+
+                if (winner && strcmp(winner, "NONE") == 0) {
+                    puts("No winner for this question.");
                 }
-            } while (ans < 1 || ans > 4);
-
-            snprintf(sendBuff, sizeof(sendBuff), "ANSWER %d\n", ans);
-            send(sockfd, sendBuff, strlen(sendBuff), 0);
-
-            printf("Answer sent. Waiting for result...\n");
-        }
-
-        //RESULT
-        else if (strncmp(recvBuff, "RESULT|", 7) == 0) {
-
-            strtok(recvBuff, "|");
-            char *winner = strtok(NULL, "|");
-
-            if (strcmp(winner, "NONE") == 0) {
-                puts("No winner for this question.");
+                else if (winner && strcmp(winner, my_username) == 0) {
+                    puts("You are the MAIN player!");
+                }
+                else {
+                    puts("You are a SUB player.");
+                }
             }
-            else if (strcmp(winner, my_username) == 0) {
-                puts("You are the main player!");
+
+            // SCORE
+            else if (strncmp(line, "SCORE|YOU|", 10) == 0) {
+
+                strtok(line, "|"); // SCORE
+                strtok(NULL, "|"); // YOU
+                char *score = strtok(NULL, "|");
+
+                printf("Your score: %s\n", score);
             }
+
+            // MAIN ROUND RESULT (CODE)
             else {
-                puts("You are the sub player.");
+                // neu server gui ma (400–4xx)
+                if (isdigit((unsigned char)line[0])) {
+                    explain_code(line);
+                }
+                // message khác
+                else if (strcmp(line, "300") != 0) {
+                    printf("[SERVER]: %s\n", line);
+                }
             }
-            return;
-        }
 
-        else {
-            printf("[SERVER]: %s\n", recvBuff);
+            line = strtok_r(NULL, "\n", &saveptr);
         }
     }
 }
+
 
 //MAIN 
 int main(int argc, char *argv[]) {
