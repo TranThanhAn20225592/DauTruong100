@@ -57,7 +57,10 @@ void applyTimeoutRules() {
 
         if (players[i].response_time_ms > players[i].time_limit_ms) {
             players[i].isCorrect = 0;
-        }
+            players[i].isTimeout = 1;
+        } else {
+        	players[i].isTimeout = 0;
+		} 
     }
 }
 
@@ -152,8 +155,13 @@ void handleMainCorrect() {
             players[i].score = 0;
             players[i].state = 0;
 
-            sendCode(&players[i], 401); // SUB WRONG
-            sendCode(&players[i], 410); // ELIMINATED
+            if (players[i].isTimeout){
+               sendCode(&players[i], 402); //TIMEOUT 
+			} else{
+               sendCode(&players[i], 401);
+			} // WRONG
+            sendCode(&players[i], 410);     // ELIMINATED
+
         } else {
             subCorrect++;
             sendCode(&players[i], 400); // SUB CORRECT
