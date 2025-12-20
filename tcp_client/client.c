@@ -43,6 +43,16 @@ void explain_code(const char *code) {
     else puts(code);
 }
 
+int recvProcessor(int sockfd, char *buffer, int bufferSize) {
+    int n = recv(sockfd, buffer, bufferSize - 1, 0);
+    if (n > 0) {
+        buffer[n] = '\0';
+        if (buffer[n-1] == '\n') buffer[n-1] = '\0';
+        if (n > 1 && buffer[n-2] == '\r') buffer[n-2] = '\0';
+    }
+    return n;
+}
+
 // MENU
 void menu(int logged_in) {
     puts("\n MENU ");
@@ -74,7 +84,7 @@ void gamePlay(int sockfd, const char *my_username) {
         }
         recvBuff[n] = 0;
 
-        // TÁCH NHIEU MESSAGE THEO \n 
+        // Tï¿½CH NHIEU MESSAGE THEO \n 
         char *saveptr;
         char *line = strtok_r(recvBuff, "\n", &saveptr);
 
@@ -150,16 +160,16 @@ void gamePlay(int sockfd, const char *my_username) {
 
             // MAIN ROUND RESULT (CODE)
             else {
-                // neu server gui ma (400–4xx)
+                // neu server gui ma (400ï¿½4xx)
                 if (isdigit((unsigned char)line[0])) {
                     explain_code(line);
-                    // neu bi loai -> thoát gamePlay
+                    // neu bi loai -> thoï¿½t gamePlay
                     if (strcmp(line, "410") == 0) {
                        eliminated = 1;
                        return;   // quay ve menu
                     }
                 }
-                // message khác
+                // message khï¿½c
                 else if (strcmp(line, "300") != 0) {
                     printf("[SERVER]: %s\n", line);
                 }
@@ -192,7 +202,7 @@ int main(int argc, char *argv[]) {
 
     connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr));
 
-    recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
+    recvProcessor(sockfd, recvBuff, sizeof(recvBuff));
     explain_code(recvBuff);
 
     while (1) {
@@ -208,13 +218,13 @@ int main(int argc, char *argv[]) {
                 printf("Username: "); scanf("%49s", username);
                 printf("Password: "); scanf("%49s", password);
                 snprintf(sendBuff, sizeof(sendBuff),
-                         "REGISTER %s %s", username, password);
+                         "REGISTER %s %s\n", username, password);
             }
             else if (choice == 2) {
                 printf("Username: "); scanf("%49s", username);
                 printf("Password: "); scanf("%49s", password);
                 snprintf(sendBuff, sizeof(sendBuff),
-                         "LOGIN %s %s", username, password);
+                         "LOGIN %s %s\n", username, password);
             }
             else if (choice == 3) {
                 printf("Exiting...\n");
@@ -225,7 +235,7 @@ int main(int argc, char *argv[]) {
             }
 
             send(sockfd, sendBuff, strlen(sendBuff), 0);
-            recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
+            recvProcessor(sockfd, recvBuff, sizeof(recvBuff));
             explain_code(recvBuff);
 
             if (strcmp(recvBuff,"110") == 0)
@@ -235,15 +245,15 @@ int main(int argc, char *argv[]) {
         // LOGGED IN
         else {
             if (choice == 1) {
-                send(sockfd, "JOIN", 4, 0);
+                send(sockfd, "JOIN\n", 5, 0);
 
-                recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
+                recvProcessor(sockfd, recvBuff, sizeof(recvBuff));
                 explain_code(recvBuff);
 
                 if (strcmp(recvBuff,"200") != 0)
                     continue;
 
-                recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
+                recvProcessor(sockfd, recvBuff, sizeof(recvBuff));
                 explain_code(recvBuff);
 
                 if (strcmp(recvBuff,"210") == 0) {
@@ -251,8 +261,8 @@ int main(int argc, char *argv[]) {
                 }
             }
             else if (choice == 2) {
-                send(sockfd, "LOGOUT", 6, 0);
-                recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0);
+                send(sockfd, "LOGOUT\n", 7, 0);
+                recvProcessor(sockfd, recvBuff, sizeof(recvBuff));
                 explain_code(recvBuff);
                 logged_in = 0;
             }

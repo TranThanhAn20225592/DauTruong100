@@ -16,7 +16,7 @@ char onlineUser[1000][50];
 int onlineCount = 0;
 extern int gameState;
 
-// 0: chon main, 1: luot choi chính 
+// 0: chon main, 1: luot choi chï¿½nh 
 int roundPhase = 0;
 
 // dem so nguoi da tra loi trong luot hien tai 
@@ -52,8 +52,7 @@ int handleRequest(
     char *buff,
     int idx,
     int client_fd,
-    int logged_in[],
-    char client_user[][50]
+    ClientSession *sessions
 ) {
 
     char cmd[64] = {0};
@@ -77,8 +76,8 @@ int handleRequest(
             } else {
                 code = loginAccount(arg1, arg2);
                 if (code == 110) {
-                    logged_in[idx] = 1;
-                    strcpy(client_user[idx], arg1);
+                    sessions[idx].isLoggedIn = 1;
+                    strcpy(sessions[idx].username, arg1);
                     setUserOnline(arg1);
                 }
             }
@@ -87,21 +86,21 @@ int handleRequest(
 
     // LOGOUT
     else if (strcmp(cmd, "LOGOUT") == 0) {
-        if (!logged_in[idx]) {
+        if (!sessions[idx].isLoggedIn) {
             code = 121;
         } else {
-            code = logoutAccount(client_user[idx]);
+            code = logoutAccount(sessions[idx].username);
             if (code == 120) {
-                setUserOffline(client_user[idx]);
-                logged_in[idx] = 0;
-                client_user[idx][0] = 0;
+                setUserOffline(sessions[idx].username);
+                sessions[idx].isLoggedIn = 0;
+                sessions[idx].username[0] = 0;
             }
         }
     }
 
     // JOIN
     else if (strcmp(cmd, "JOIN") == 0) {
-        if (!logged_in[idx]) return 299;
+        if (!sessions[idx].isLoggedIn) return 299;
         if (gameState == 1) return 203;
         return handleJoin(client_fd);
     }
@@ -129,14 +128,14 @@ int handleRequest(
 
         activeAnswerCount++;
 
-        // ÐEM SO PLAYER CON SONG
+        // ï¿½EM SO PLAYER CON SONG
         int aliveCount = 0;
         for (int i = 0; i < playerCount; i++) {
             if (players[i].state == 1)
                 aliveCount++;
         }
 
-        // TAT CA ÐA TRA LOI
+        // TAT CA ï¿½A TRA LOI
         if (activeAnswerCount == aliveCount) {
 
             // CHON MAIN PLAYER  

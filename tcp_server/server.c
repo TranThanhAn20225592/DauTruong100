@@ -21,14 +21,18 @@
 #define BACKLOG 20
 #define BUFF_SIZE 4096
 
+
+
+ClientSession sessions[FD_SETSIZE];
+
 int gameState = 0; // 0: dang cho, 1: dang choi game
 
 // SERVER
 int main() {
     int listenfd, connfd, sockfd;
-    int client[FD_SETSIZE];              // Mang luu socket cua cac client
-    int logged_in[FD_SETSIZE];           // Trang thai dang nhap cua moi client
-    char client_user[FD_SETSIZE][50];    // Luu username cua client
+    // int client[FD_SETSIZE];              // Mang luu socket cua cac client
+    // int logged_in[FD_SETSIZE];           // Trang thai dang nhap cua moi client
+    // char client_user[FD_SETSIZE][50];    // Luu username cua client
     fd_set allset, rset;                 // Tap socket theo doi
     int maxfd, maxi;
     struct sockaddr_in servaddr, cliaddr;
@@ -42,9 +46,13 @@ int main() {
 
     // Khoi tao danh sach client
     for (int i = 0; i < FD_SETSIZE; i++) {
-        client[i] = -1;
-        logged_in[i] = 0;
-        client_user[i][0] = 0;
+        // client[i] = -1;
+        // logged_in[i] = 0;
+        // client_user[i][0] = 0;
+        sessions[i].sockfd = -1;
+        sessions[i].isLoggedIn = 0;
+        sessions[i].username[0] = 0;
+        sessions[i].bufferLen = 0;
     }
 
     // Tao socket cho server
@@ -94,15 +102,15 @@ int main() {
                 char *name = NULL;
 
                 for (int k = 0; k <= maxi; k++) {
-                    if (client[k] == sock) {
-                        name = client_user[k];
+                    if (sessions[k].sockfd == sock) {
+                        name = sessions[k].username;
                         break;
                     }
                 }
 
                 if (name != NULL){
                     addPlayer(sock, name);
-                    send(sock, "210", 4, 0);
+                    send(sock, "210\n", 4, 0);
                 }
             }
 
@@ -114,7 +122,7 @@ int main() {
         // Khong du nguoi choi -> huy phong cho
         } else if (timeoutCode == 202) {
             for (int j = 0; j < waitingCount; j++) {
-                send(waitingRoom[j], "202", 4, 0);
+                send(waitingRoom[j], "202\n", 4, 0);
             }
             initWaitingRoom();
         }
@@ -150,10 +158,12 @@ int main() {
 
             int i;
             for (i = 0; i < FD_SETSIZE; i++) {
-                if (client[i] < 0) {
-                    client[i] = connfd;
-                    logged_in[i] = 0;
-                    client_user[i][0] = 0;
+                if (sessions[i].sockfd < 0) {
+                    sessions[i].sockfd = connfd;
+                    sessions[i].addr = cliaddr;
+                    sessions[i].isLoggedIn = 0;
+                    sessions[i].bufferLen = 0;
+                    memset(sessions[i].buffer, 0, BUFF_SIZE);
                     break;
                 }
             }
@@ -168,7 +178,7 @@ int main() {
                 if (i > maxi) maxi = i;
 
                 // Gui ma chao khi ket noi
-                send(connfd, "900", 3, 0);
+                send(connfd, "900\n", 4, 0);
             }
 
             if (--nready <= 0) continue;
@@ -176,33 +186,80 @@ int main() {
 
         // Xu ly du lieu tu client
         for (int i = 0; i <= maxi; i++) {
-            sockfd = client[i];
+            sockfd = sessions[i].sockfd;
             if (sockfd < 0) continue;
 
             if (FD_ISSET(sockfd, &rset)) {
-                int n = recv(sockfd, buff, BUFF_SIZE - 1, 0);
-
-                // Client ngat ket noi
+                //int n = recv(sockfd, buff, BUFF_SIZE - 1, 0);
+                int n;
+                int freeSpace = BUFF_SIZE - 1 - sessions[i].bufferLen - 1;
+                if (freeSpace <= 0) {
+                    sessions[i].bufferLen = 0;
+                    freeSpace = BUFF_SIZE - 1;
+                }
+                n = recv(sockfd, sessions[i].buffer + sessions[i].bufferLen, freeSpace, 0);
                 if (n <= 0) {
-                    if (logged_in[i]) {
-                        setUserOffline(client_user[i]);
-                        logoutAccount(client_user[i]);
-                        logged_in[i] = 0;
-                        client_user[i][0] = 0;
+                    printf("Client %d disconnected.\n", sockfd);
+                    if (sessions[i].isLoggedIn) {
+                        setUserOffline(sessions[i].username);
+                        logoutAccount(sessions[i].username);
+                        sessions[i].isLoggedIn = 0;
+                        sessions[i].username[0] = 0;
                     }
                     close(sockfd);
                     FD_CLR(sockfd, &allset);
-                    client[i] = -1;
-                } else {
-                    buff[n] = 0;
+                    sessions[i].sockfd = -1;
+                    sessions[i].isLoggedIn = 0;
+                    sessions[i].username[0] = 0;
+                    sessions[i].bufferLen = 0;
+                    sessions[i].buffer[0] = 0;
+                }
+
+                // Client ngat ket noi
+                // if (n <= 0) {
+                //     if (logged_in[i]) {
+                //         setUserOffline(client_user[i]);
+                //         logoutAccount(client_user[i]);
+                //         logged_in[i] = 0;
+                //         client_user[i][0] = 0;
+                //     }
+                //     close(sockfd);
+                //     FD_CLR(sockfd, &allset);
+                //     client[i] = -1;
+                // } 
+                else {
+                    sessions[i].bufferLen += n;
+                    sessions[i].buffer[sessions[i].bufferLen] = '\0';
+                    char *lineStart = sessions[i].buffer;
+                    char *lineEnd;
+                    while ((lineEnd = strstr(lineStart, "\n")) != NULL) {
+                        *lineEnd = '\0';
+                        if (lineEnd > lineStart && *(lineEnd -1) == '\r') {
+                            *(lineEnd -1) = '\0';
+                        }
+                        if (strlen(lineStart) > 0) {
+                            printf("[DEBUG] Processing: %s\n", lineStart);
+                            int code = handleRequest(lineStart, i, sockfd, sessions);
+                            char out[16];
+                            snprintf(out, sizeof(out), "%d\n", code);
+                            send(sockfd, out, strlen(out), 0);
+                        }
+                        lineStart = lineEnd + 1;
+                    }
 
                     // Xu ly yeu cau tu client
-                    int code = handleRequest(buff, i, sockfd, logged_in, client_user);
+                    // int code = handleRequest(buff, i, sockfd, logged_in, client_user);
 
                     // Gui ma phan hoi
-                    char out[16];
-                    snprintf(out, sizeof(out), "%d", code);
-                    send(sockfd, out, strlen(out), 0);
+                    // char out[16];
+                    // snprintf(out, sizeof(out), "%d", code);
+                    // send(sockfd, out, strlen(out), 0);
+                    int remainingLen = sessions[i].bufferLen - (lineStart - sessions[i].buffer);
+                    if (remainingLen > 0) {
+                        memmove(sessions[i].buffer, lineStart, remainingLen);
+                    }
+                    sessions[i].bufferLen = remainingLen;
+                    memset(sessions[i].buffer + sessions[i].bufferLen, 0, BUFF_SIZE - sessions[i].bufferLen);
                 }
 
                 if (--nready <= 0) break;
@@ -212,7 +269,7 @@ int main() {
 
     // Dong tat ca socket
     for (int i = 0; i <= maxi; i++)
-        if (client[i] > 0) close(client[i]);
+        if (sessions[i].sockfd > 0) close(sessions[i].sockfd);
 
     close(listenfd);
     return 0;
