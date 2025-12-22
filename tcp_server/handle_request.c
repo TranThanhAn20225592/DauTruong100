@@ -16,7 +16,7 @@ char onlineUser[1000][50];
 int onlineCount = 0;
 extern int gameState;
 
-// 0: chon main, 1: luot choi ch�nh 
+// 0: chon main, 1: luot choi chinh 
 int roundPhase = 0;
 
 // dem so nguoi da tra loi trong luot hien tai 
@@ -128,14 +128,14 @@ int handleRequest(
 
         activeAnswerCount++;
 
-        // �EM SO PLAYER CON SONG
+        // DEM SO PLAYER CON SONG
         int aliveCount = 0;
         for (int i = 0; i < playerCount; i++) {
             if (players[i].state == 1)
                 aliveCount++;
         }
 
-        // TAT CA �A TRA LOI
+        // TAT CA DA TRA LOI
         if (activeAnswerCount == aliveCount) {
 
             // CHON MAIN PLAYER  
@@ -183,8 +183,27 @@ int handleRequest(
                 }
             }
         }
-
         return 300;
+    }
+    else if (strcmp(cmd, "SKIP") == 0) {
+        Player *p = getPlayer(client_fd);
+        if (!p || p->state != 1) return 301;
+        // chi MAIN duoc skip 
+        if (p->role != 1) return 305;
+        // het luot skip 
+        if (p->skip_left <= 0) return 306;
+
+        p->skip_left--;
+
+        handleMainSkip();   // xu ly logic SKIP
+        broadcastScores();
+
+        currentQuestionId++;
+        if (currentQuestionId < questionCount) {
+          sendQuestionToAllPlayers(currentQuestionId);
+        }
+
+       return 307; // SKIP OK
     }
 
     return code;

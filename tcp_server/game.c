@@ -151,28 +151,47 @@ void handleMainCorrect() {
             continue;
 
         if (!players[i].isCorrect) {
+
             stolenScore += players[i].score;
             players[i].score = 0;
             players[i].state = 0;
 
-            if (players[i].isTimeout){
-               sendCode(&players[i], 402); //TIMEOUT 
-			} else{
-               sendCode(&players[i], 401);
-			} // WRONG
-            sendCode(&players[i], 410);     // ELIMINATED
+            if (players[i].isTimeout) {
+                sendCode(&players[i], 402); // TIMEOUT
+            } else {
+                sendCode(&players[i], 401); // WRONG
+            }
+            sendCode(&players[i], 410); // ELIMINATED
 
-        } else {
+            // GUI LOG SPECTATOR
+            char log[128];
+            snprintf(log, sizeof(log),
+                "LOG|%s was eliminated\n",
+                players[i].username);
+            sendLogToSpectators(log);
+
+        }
+
+        else {
             subCorrect++;
             sendCode(&players[i], 400); // SUB CORRECT
             sendCode(&players[i], 411); // STAY IN GAME
         }
     }
 
+    
     main->score += stolenScore;
 
     if (subCorrect == 0) {
+
         sendCode(main, 420); // MAIN WINS GAME
+
+        char log[128];
+        snprintf(log, sizeof(log),
+            "LOG|MAIN %s wins the game\n",
+            main->username);
+        sendLogToSpectators(log);
+
         printf("[GAME] MAIN %s WINS GAME\n", main->username);
     }
 }
@@ -196,6 +215,12 @@ void handleMainWrong() {
 
     main->score = 0;
     main->state = 0;
+
+    char log[128];
+    snprintf(log, sizeof(log),
+        "LOG|MAIN %s was eliminated\n",
+        main->username);
+    sendLogToSpectators(log);
 
     for (int i = 0; i < playerCount; i++) {
         if (players[i].state == 1 && players[i].role == 0)
@@ -225,14 +250,75 @@ void handleMainWrong() {
         players[i].role = 0;
 
     if (nextMain != -1) {
+
         players[nextMain].role = 1;
         sendCode(&players[nextMain], 412); // BECOME MAIN
-    } else {
+
+        char log2[128];
+        snprintf(log2, sizeof(log2),
+            "LOG|%s becomes MAIN\n",
+            players[nextMain].username);
+        sendLogToSpectators(log2);
+
+    }
+
+    else {
         for (int i = 0; i < playerCount; i++) {
             if (players[i].state == 1)
                 sendCode(&players[i], 421); // NO WINNER
         }
+        sendLogToSpectators("LOG|No winner this round\n");
     }
+}
+
+void handleMainSkip() {
+
+    int mainIdx = getMainPlayerIndex();
+    if (mainIdx == -1) return;
+
+    Player *main = &players[mainIdx];
+
+    int totalSubWrongScore = 0;
+    int subCorrectCount = 0;
+
+    // diem SUB ðúng và gom diem SUB sai
+    for (int i = 0; i < playerCount; i++) {
+
+        if (players[i].state != 1 || i == mainIdx)
+            continue;
+
+        if (players[i].isCorrect) {
+            subCorrectCount++;
+        } else {
+            totalSubWrongScore += players[i].score;
+        }
+    }
+
+    // neu không có SUB dúng không ai duoc diem 
+	    if (subCorrectCount == 0) {
+        sendCode(main, 421); // NO WINNER
+        return;
+    }
+
+    // MAIN chia 1/2 diem
+    int halfMainScore = main->score / 2;
+    main->score -= halfMainScore;
+
+    int share =
+        (halfMainScore + totalSubWrongScore) / subCorrectCount;
+
+    // chia cho SUB dúng
+    for (int i = 0; i < playerCount; i++) {
+        if (players[i].state == 1 &&
+            players[i].role == 0 &&
+            players[i].isCorrect) {
+
+            players[i].score += share;
+            sendCode(&players[i], 400); // SUB CORRECT
+        }
+    }
+
+    sendCode(main, 430); // MAIN SKIPPED
 }
 
 // Cap nhat score sau moi cau hoi trong luot choi chinh  
@@ -250,6 +336,13 @@ void broadcastScores() {
     }
 }
 
+void sendLogToSpectators(const char *msg) {
+    for (int i = 0; i < playerCount; i++) {
+        if (players[i].state == 0) {   // cho spectator
+            send(players[i].sockfd, msg, strlen(msg), 0);
+        }
+    }
+}
 
 // MAIN ROUND RESULT
 void processMainRoundResult() {

@@ -21,6 +21,7 @@ int addPlayer(int sockfd, char *username) {
     players[playerCount].state = 1;
     players[playerCount].role = 0;
     players[playerCount].currentAnswer = 0;
+    players[playerCount].skip_left = 2;
     playerCount++;
     return playerCount - 1;
 }
