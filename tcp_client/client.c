@@ -84,7 +84,7 @@ void gamePlay(int sockfd, const char *my_username) {
         }
         recvBuff[n] = 0;
 
-        // T�CH NHIEU MESSAGE THEO \n 
+        // TACH NHIEU MESSAGE THEO \n 
         char *saveptr;
         char *line = strtok_r(recvBuff, "\n", &saveptr);
 
@@ -157,19 +157,22 @@ void gamePlay(int sockfd, const char *my_username) {
                 char *score = strtok(NULL, "|");
                 printf("Your score: %s\n", score);
             }
+            
+            else if (strncmp(line, "LOG|", 4) == 0) {
+                printf("[SPECTATOR] %s\n", line + 4);
+            }
 
             // MAIN ROUND RESULT (CODE)
             else {
-                // neu server gui ma (400�4xx)
                 if (isdigit((unsigned char)line[0])) {
                     explain_code(line);
-                    // neu bi loai -> tho�t gamePlay
                     if (strcmp(line, "410") == 0) {
                        eliminated = 1;
-                       return;   // quay ve menu
+                       //return;   // quay ve menu
+                       puts("You are eliminated. Watching the game...");
                     }
                 }
-                // message kh�c
+                // message khac
                 else if (strcmp(line, "300") != 0) {
                     printf("[SERVER]: %s\n", line);
                 }
