@@ -12,6 +12,7 @@ typedef struct {
     int isLoggedIn;             // Trang thai dang nhap cua client
     char buffer[BUFF_SIZE];
     int bufferLen;
+    int pendingRoundEnd;
 } ClientSession;
 
 int handleRequest(

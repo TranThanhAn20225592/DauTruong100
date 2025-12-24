@@ -65,7 +65,7 @@ void applyTimeoutRules() {
 }
 
 
-// SEND QUESTION – dùng cho ca 2 stage 
+// SEND QUESTION ï¿½ dï¿½ng cho ca 2 stage 
 void sendQuestionToAllPlayers(int questionId) {
 
     if (questionId >= questionCount) {
@@ -81,7 +81,7 @@ void sendQuestionToAllPlayers(int questionId) {
     Question *q = &questions[questionId];
     char buffer[1024];
 
-    // reset trang thái tra loi cua player
+    // reset trang thï¿½i tra loi cua player
     resetPlayerAnswers();
     gettimeofday(&question_start_time, NULL);
 
@@ -97,6 +97,11 @@ void sendQuestionToAllPlayers(int questionId) {
 
     for (int i = 0; i < playerCount; i++) {
         if (players[i].state == 1) {
+            if (players[i].role == 1) {
+                char skipMsg[64];
+                snprintf(skipMsg, sizeof(skipMsg), "SKIP_INFO|%d\n", players[i].skip_left);
+                send(players[i].sockfd, skipMsg, strlen(skipMsg), 0);
+            }
             send(players[i].sockfd, buffer, strlen(buffer), 0);
         }
     }
@@ -193,6 +198,11 @@ void handleMainCorrect() {
         sendLogToSpectators(log);
 
         printf("[GAME] MAIN %s WINS GAME\n", main->username);
+        for (int i = 0; i < playerCount; i++) {
+            if (players[i].state == 0 && players[i].sockfd > 0) {
+                sendCode(&players[i], 421); 
+            }
+        }
     }
 }
 
@@ -281,7 +291,7 @@ void handleMainSkip() {
     int totalSubWrongScore = 0;
     int subCorrectCount = 0;
 
-    // diem SUB ðúng và gom diem SUB sai
+    // diem SUB ï¿½ï¿½ng vï¿½ gom diem SUB sai
     for (int i = 0; i < playerCount; i++) {
 
         if (players[i].state != 1 || i == mainIdx)
@@ -294,9 +304,9 @@ void handleMainSkip() {
         }
     }
 
-    // neu không có SUB dúng không ai duoc diem 
+    // neu khï¿½ng cï¿½ SUB dï¿½ng khï¿½ng ai duoc diem 
 	    if (subCorrectCount == 0) {
-        sendCode(main, 421); // NO WINNER
+        sendCode(main, 308); // NO WINNER
         return;
     }
 
@@ -307,7 +317,7 @@ void handleMainSkip() {
     int share =
         (halfMainScore + totalSubWrongScore) / subCorrectCount;
 
-    // chia cho SUB dúng
+    // chia cho SUB dï¿½ng
     for (int i = 0; i < playerCount; i++) {
         if (players[i].state == 1 &&
             players[i].role == 0 &&
@@ -352,7 +362,9 @@ void processMainRoundResult() {
     
     applyTimeoutRules();
 
-    if (players[mainIdx].isCorrect) {
+    if (players[mainIdx].isSkipped) {
+        handleMainSkip();
+    } else if (players[mainIdx].isCorrect) {
         handleMainCorrect();
     } else {
         handleMainWrong();

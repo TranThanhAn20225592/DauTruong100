@@ -3,9 +3,15 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <ctype.h>
 
 #define MAXLINE 4096
+
+void flushSocket(int sockfd) {
+    char dump[1024];
+    while (recv(sockfd, dump, sizeof(dump), MSG_DONTWAIT) > 0) {}
+}
 
 void explain_code(const char *code) {
     if (strcmp(code,"900") == 0) puts("Connected to server");
@@ -27,6 +33,7 @@ void explain_code(const char *code) {
     else if (strcmp(code,"300") == 0) puts("Answer received");
     else if (strcmp(code,"301") == 0) puts("You are not in the game");
     else if (strcmp(code,"302") == 0) puts("You have already answered");
+    else if (strcmp(code,"308") == 0) puts("Skip completed but no scores changed");
     
     else if (strcmp(code,"400") == 0) puts("Answer correct");
     else if (strcmp(code,"401") == 0) puts("Answer wrong");
@@ -74,6 +81,7 @@ void gamePlay(int sockfd, const char *my_username) {
     char sendBuff[MAXLINE];
     int n;
     int eliminated = 0;
+    int skipLeft = -1;
 
     while (1) {
 
@@ -89,6 +97,15 @@ void gamePlay(int sockfd, const char *my_username) {
         char *line = strtok_r(recvBuff, "\n", &saveptr);
 
         while (line != NULL) {
+            if (strncmp(line, "SKIP_INFO|", 10) == 0) {
+                char tmp[MAXLINE];
+                strncpy(tmp, line, sizeof(tmp));
+                strtok(tmp, "|");
+                char *countStr = strtok(NULL, "|");
+                if (countStr) {
+                    skipLeft = atoi(countStr);
+                }
+            }
 
             // QUESTION 
             if (strncmp(line, "QUES|", 5) == 0) {
@@ -110,23 +127,44 @@ void gamePlay(int sockfd, const char *my_username) {
                 printf("3. %s\n", op3);
                 printf("4. %s\n", op4);
 
+                if (skipLeft >= 0) {
+                    printf("\n------------------------------------------------\n");
+                    if (skipLeft > 0) {
+                        printf("(!) You have %d skips left (enter 5 to skip)\n", skipLeft);
+                    } else {
+                        printf("(!) You have no skips left!\n");
+                        printf("    (If you enter 5 now, you will be eliminated)\n");
+                    }
+                    printf("------------------------------------------------\n");    
+                }
+
                 int ans = 0;
                 do {
-                    printf("Enter your answer (1-4): ");
+                    printf("Enter your answer (1-4");
+                    if (skipLeft >= 0) printf(", 5=SKIP");
+                    printf("): ");
+
                     if (scanf("%d", &ans) != 1) {
                         int c;
                         while ((c = getchar()) != '\n' && c != EOF) {}
                         ans = 0;
                     }
-                } while (ans < 1 || ans > 4);
+                } while (ans < 1 || ans > 5);
 
                 int c;
                 while ((c = getchar()) != '\n' && c != EOF) {}
 
-                snprintf(sendBuff, sizeof(sendBuff), "ANSWER %d\n", ans);
+                if (ans == 5) {
+                    snprintf(sendBuff, sizeof(sendBuff), "SKIP\n");
+                    printf("Sent SKIP...\n");
+                } else {
+                    snprintf(sendBuff, sizeof(sendBuff), "ANSWER %d\n", ans);
+                    printf("Sent ANSWER %d...\n", ans);
+                }
+
                 send(sockfd, sendBuff, strlen(sendBuff), 0);
 
-                puts("Answer sent. Waiting for result...");
+                skipLeft = -1; // reset skip info
             }
 
             //CHON MAIN (STAGE 1)
@@ -170,6 +208,11 @@ void gamePlay(int sockfd, const char *my_username) {
                        eliminated = 1;
                        //return;   // quay ve menu
                        puts("You are eliminated. Watching the game...");
+                    } else if (strcmp(line, "420") == 0) {                       
+                        return;
+                    } else if (strcmp(line, "421") == 0) {
+                        puts("Game Over. Returning to Menu...");
+                        return;
                     }
                 }
                 // message khac
@@ -213,6 +256,8 @@ int main(int argc, char *argv[]) {
         menu(logged_in);
         scanf("%d", &choice);
         while (getchar() != '\n');
+
+        flushSocket(sockfd);
 
         // NOT LOGGED IN
         if (!logged_in) {

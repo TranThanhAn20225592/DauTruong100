@@ -137,6 +137,7 @@ int handleRequest(
 
         // TAT CA DA TRA LOI
         if (activeAnswerCount == aliveCount) {
+            sessions[idx].pendingRoundEnd = 1;
 
             // CHON MAIN PLAYER  
             if (roundPhase == 0) {
@@ -162,9 +163,17 @@ int handleRequest(
 
                 broadcastResult(winner);
 
+                currentQuestionId++;
+
+                if (currentQuestionId >= questionCount) {
+                    currentQuestionId = 0;
+                    printf("[GAME] OUT OF QUESTIONS - RETURN TO THE FIRST QUESTION OF THE LIST\n");
+                }
                 if (winner != -1) {
                     roundPhase = 1;
                     startMainRound();
+                } else {
+                    sendQuestionToAllPlayers(currentQuestionId);
                 }
             }
 
@@ -173,14 +182,13 @@ int handleRequest(
 
                 processMainRoundResult();
                 broadcastScores();
+                sessions[idx].pendingRoundEnd = 1;
                 currentQuestionId++;
 
-                if (currentQuestionId < questionCount) {
-                    sendQuestionToAllPlayers(currentQuestionId);
-                } else {
-                    printf("[GAME] OUT OF QUESTIONS - END GAME\n");
-                    gameState = 0;
+                if (currentQuestionId >= questionCount) {
+                    currentQuestionId = 0;
                 }
+                sendQuestionToAllPlayers(currentQuestionId);
             }
         }
         return 300;
@@ -191,19 +199,39 @@ int handleRequest(
         // chi MAIN duoc skip 
         if (p->role != 1) return 305;
         // het luot skip 
-        if (p->skip_left <= 0) return 306;
-
-        p->skip_left--;
-
-        handleMainSkip();   // xu ly logic SKIP
-        broadcastScores();
-
-        currentQuestionId++;
-        if (currentQuestionId < questionCount) {
-          sendQuestionToAllPlayers(currentQuestionId);
+        if (p->skip_left <= 0) {
+            printf("[GAME] Player %s tried to skip with 0 skips left -> Eliminated\n", p->username);
+            
+            handleMainWrong();
+            broadcastScores(); 
+            
+            currentQuestionId++;
+            if (currentQuestionId < questionCount && gameState == 1) {
+                sendQuestionToAllPlayers(currentQuestionId);
+            }
+            return 300; 
         }
 
-       return 307; // SKIP OK
+        p->skip_left--;
+        p->answered = 1;
+        p->isSkipped = 1;
+
+        activeAnswerCount++;
+
+        int aliveCount = 0;
+        for (int i = 0; i < playerCount; i++) {
+            if (players[i].state == 1) aliveCount++;
+        }
+
+        if (activeAnswerCount == aliveCount) {
+            sessions[idx].pendingRoundEnd = 1;
+            processMainRoundResult();
+            broadcastScores();            
+            currentQuestionId++;
+            if (currentQuestionId >= questionCount) currentQuestionId = 0;
+            sendQuestionToAllPlayers(currentQuestionId);            
+        }
+        return 307;
     }
 
     return code;

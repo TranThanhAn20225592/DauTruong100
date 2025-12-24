@@ -44,6 +44,7 @@ void resetPlayerAnswers() {
         players[i].answered = 0;
         players[i].isCorrect = 0;
         players[i].response_time_ms = 0;
+        players[i].isSkipped = 0;
     }
 }
 

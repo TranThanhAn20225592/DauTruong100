@@ -39,18 +39,19 @@ int checkJoinTimeout() {
 // Xu ly JOIN
 int handleJoin(int sockfd) {
 
-    if (waitingCount >= WAITING_MAX)
-        return 201;
-
-    waitingRoom[waitingCount++] = sockfd;
-
-    if (waitingCount == 1)
-        startTime = time(NULL);
-
-    if (waitingCount == WAITING_MAX) {
-        return 210;
+    for (int i = 0; i < waitingCount; i++) {
+        if (waitingRoom[i] == sockfd) {
+            return 200; // Đã ở trong phòng rồi, báo thành công luôn, không thêm nữa
+        }
     }
 
-    return 200;
+    if (waitingCount < WAITING_MAX) {
+        waitingRoom[waitingCount++] = sockfd;
+        if (waitingCount == 1) startTime = time(NULL);
+        if (waitingCount == WAITING_MAX) return 210; // Đủ người, bắt đầu ngay
+        return 200;
+    } else {
+        return 201;
+    }
 }
 

@@ -18,6 +18,7 @@ typedef struct {
     long response_time_ms;     // thoi gian tra loi (ms)
     long time_limit_ms;
     int isTimeout;
+    int isSkipped;
 
     int skip_left;
 

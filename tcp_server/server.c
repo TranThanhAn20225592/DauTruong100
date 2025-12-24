@@ -214,19 +214,6 @@ int main() {
                     sessions[i].bufferLen = 0;
                     sessions[i].buffer[0] = 0;
                 }
-
-                // Client ngat ket noi
-                // if (n <= 0) {
-                //     if (logged_in[i]) {
-                //         setUserOffline(client_user[i]);
-                //         logoutAccount(client_user[i]);
-                //         logged_in[i] = 0;
-                //         client_user[i][0] = 0;
-                //     }
-                //     close(sockfd);
-                //     FD_CLR(sockfd, &allset);
-                //     client[i] = -1;
-                // } 
                 else {
                     sessions[i].bufferLen += n;
                     sessions[i].buffer[sessions[i].bufferLen] = '\0';
@@ -243,23 +230,26 @@ int main() {
                             char out[16];
                             snprintf(out, sizeof(out), "%d\n", code);
                             send(sockfd, out, strlen(out), 0);
+                            if (sessions[i].pendingRoundEnd) {
+                                printf("[DEBUG] Round ended. Flushing buffer for client %d\n", sockfd);
+                                sessions[i].pendingRoundEnd = 0;
+                                sessions[i].bufferLen = 0;
+                                memset(sessions[i].buffer, 0, BUFF_SIZE);
+                                break; 
+                            }
                         }
                         lineStart = lineEnd + 1;
                     }
-
-                    // Xu ly yeu cau tu client
-                    // int code = handleRequest(buff, i, sockfd, logged_in, client_user);
-
-                    // Gui ma phan hoi
-                    // char out[16];
-                    // snprintf(out, sizeof(out), "%d", code);
-                    // send(sockfd, out, strlen(out), 0);
                     int remainingLen = sessions[i].bufferLen - (lineStart - sessions[i].buffer);
                     if (remainingLen > 0) {
                         memmove(sessions[i].buffer, lineStart, remainingLen);
                     }
-                    sessions[i].bufferLen = remainingLen;
-                    memset(sessions[i].buffer + sessions[i].bufferLen, 0, BUFF_SIZE - sessions[i].bufferLen);
+                    if (sessions[i].bufferLen == 0) {
+                        memset(sessions[i].buffer, 0, BUFF_SIZE); 
+                    } else {
+                        sessions[i].bufferLen = remainingLen;
+                        memset(sessions[i].buffer + sessions[i].bufferLen, 0, BUFF_SIZE - sessions[i].bufferLen);
+                    }
                 }
 
                 if (--nready <= 0) break;
