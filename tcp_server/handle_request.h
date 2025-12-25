@@ -22,5 +22,11 @@ int handleRequest(
     ClientSession *sessions
 );
 
+void handleClientDisconnect(
+    int client_fd,
+    int idx,
+    ClientSession *sessions
+);
+
 #endif
 

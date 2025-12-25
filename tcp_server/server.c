@@ -200,12 +200,7 @@ int main() {
                 n = recv(sockfd, sessions[i].buffer + sessions[i].bufferLen, freeSpace, 0);
                 if (n <= 0) {
                     printf("Client %d disconnected.\n", sockfd);
-                    if (sessions[i].isLoggedIn) {
-                        setUserOffline(sessions[i].username);
-                        logoutAccount(sessions[i].username);
-                        sessions[i].isLoggedIn = 0;
-                        sessions[i].username[0] = 0;
-                    }
+                    handleClientDisconnect(sockfd, i, sessions);
                     close(sockfd);
                     FD_CLR(sockfd, &allset);
                     sessions[i].sockfd = -1;
