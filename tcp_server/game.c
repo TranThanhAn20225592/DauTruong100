@@ -7,11 +7,13 @@
 #include "game.h"
 #include "player.h"
 #include "question.h"
+#include "join.h"
 
-// Prototype ð? tránh implicit declaration/conflicting types
+// Prototype ï¿½? trï¿½nh implicit declaration/conflicting types
 void sendLogToSpectators(const char *msg);
 
 // GLOBAL
+extern int gameState;
 struct timeval question_start_time;
 int currentQuestionId = 0;
 
@@ -59,7 +61,7 @@ void applyTimeoutRules() {
     }
 }
 
-// SEND QUESTION - dùng cho c? 2 stage
+// SEND QUESTION - dï¿½ng cho c? 2 stage
 void sendQuestionToAllPlayers(int questionId) {
 
     if (questionId >= questionCount) {
@@ -67,14 +69,14 @@ void sendQuestionToAllPlayers(int questionId) {
         return;
     }
 
-    // ? Không dùng activeAnswerCount n?a
-    // Vi?c ki?m tra "ð? ngý?i tr? l?i" ð? d?a vào players[i].answered ? handle_request.c
+    // ? Khï¿½ng dï¿½ng activeAnswerCount n?a
+    // Vi?c ki?m tra "ï¿½? ngï¿½?i tr? l?i" ï¿½? d?a vï¿½o players[i].answered ? handle_request.c
 
     currentQuestionId = questionId;
     Question *q = &questions[questionId];
     char buffer[1024];
 
-    // reset tr?ng thái tr? l?i c?a player
+    // reset tr?ng thï¿½i tr? l?i c?a player
     resetPlayerAnswers();
     gettimeofday(&question_start_time, NULL);
 
@@ -91,7 +93,7 @@ void sendQuestionToAllPlayers(int questionId) {
     for (int i = 0; i < playerCount; i++) {
         if (players[i].state == 1) {
 
-            // N?u là MAIN -> g?i info skip c?n l?i
+            // N?u lï¿½ MAIN -> g?i info skip c?n l?i
             if (players[i].role == 1) {
                 char skipMsg[64];
                 snprintf(skipMsg, sizeof(skipMsg), "SKIP_INFO|%d\n", players[i].skip_left);
@@ -204,17 +206,13 @@ void handleMainWrong() {
     if (mainIdx == -1) return;
 
     Player *main = &players[mainIdx];
-    int aliveSub = 0;
-    int nextMain = -1;
-    long bestTime = LONG_MAX;
-
     int mainScore = main->score;
 
     sendCode(main, 414); // MAIN WRONG
     sendCode(main, 410); // ELIMINATED
 
     main->score = 0;
-    main->state = 0;
+    main->state = 0; 
 
     char log[128];
     snprintf(log, sizeof(log),
@@ -222,35 +220,69 @@ void handleMainWrong() {
         main->username);
     sendLogToSpectators(log);
 
+    int correctSubCount = 0;
+
     for (int i = 0; i < playerCount; i++) {
-        if (players[i].state == 1 && players[i].role == 0)
-            aliveSub++;
+        if (players[i].state != 1 || i == mainIdx) continue;
+
+        if (!players[i].isCorrect) {
+            players[i].score = 0;
+            players[i].state = 0;
+
+            if (players[i].isTimeout) {
+                sendCode(&players[i], 402); // TIMEOUT
+            } else {
+                sendCode(&players[i], 401); // WRONG
+            }
+            sendCode(&players[i], 410); // ELIMINATED
+
+            char logSub[128];
+            snprintf(logSub, sizeof(logSub),
+                "LOG|%s was eliminated\n",
+                players[i].username);
+            sendLogToSpectators(logSub);
+
+        } else {
+            correctSubCount++;
+            sendCode(&players[i], 400); // SUB CORRECT
+        }
     }
 
-    if (aliveSub == 0) return;
+    if (correctSubCount == 0) {
+        printf("[GAME] No Sub player answered correctly. NO WINNER.\n");
 
-    int share = mainScore / aliveSub;
+        for (int i = 0; i < playerCount; i++) {
+            if (players[i].sockfd > 0) {
+                sendCode(&players[i], 421); // NO WINNER
+            }
+        }
+
+        sendLogToSpectators("LOG|No winner this round. Game Ended.\n");
+        gameState = 0;
+        initPlayers();
+        initWaitingRoom();
+        return;
+    }
+
+    int share = mainScore / correctSubCount;
+    int nextMain = -1;
+    long bestTime = LONG_MAX;
 
     for (int i = 0; i < playerCount; i++) {
+        if (players[i].state == 1 && players[i].role == 0) {
+            players[i].score += share;
 
-        if (players[i].state != 1 || players[i].role == 1)
-            continue;
-
-        players[i].score += share;
-
-        if (players[i].isCorrect &&
-            players[i].response_time_ms < bestTime) {
-
-            bestTime = players[i].response_time_ms;
-            nextMain = i;
+            if (players[i].response_time_ms < bestTime) {
+                bestTime = players[i].response_time_ms;
+                nextMain = i;
+            }
         }
     }
 
     for (int i = 0; i < playerCount; i++)
-        players[i].role = 0;
+        players[i].role = 0; // Reset role cÅ©
 
     if (nextMain != -1) {
-
         players[nextMain].role = 1;
         sendCode(&players[nextMain], 412); // BECOME MAIN
 
@@ -259,13 +291,6 @@ void handleMainWrong() {
             "LOG|%s becomes MAIN\n",
             players[nextMain].username);
         sendLogToSpectators(log2);
-
-    } else {
-        for (int i = 0; i < playerCount; i++) {
-            if (players[i].state == 1)
-                sendCode(&players[i], 421); // NO WINNER
-        }
-        sendLogToSpectators("LOG|No winner this round\n");
     }
 }
 
@@ -286,7 +311,7 @@ void handleMainSkip() {
             continue;
 
         if (players[i].isCorrect) {
-            // SUB ðúng -> c?n s?ng
+            // SUB ï¿½ï¿½ng -> c?n s?ng
             subCorrectCount++;
         } else {
             // ?? SUB SAI / TIMEOUT / DISCONNECT -> B? LO?I
@@ -310,20 +335,20 @@ void handleMainSkip() {
         }
     }
 
-    // Không có SUB ðúng ? không ai ãn ði?m
+    // Khï¿½ng cï¿½ SUB ï¿½ï¿½ng ? khï¿½ng ai ï¿½n ï¿½i?m
     if (subCorrectCount == 0) {
         sendCode(main, 308); // NO WINNER
         return;
     }
 
-    // MAIN chia 1/2 ði?m
+    // MAIN chia 1/2 ï¿½i?m
     int halfMainScore = main->score / 2;
     main->score -= halfMainScore;
 
     int share =
         (halfMainScore + totalSubWrongScore) / subCorrectCount;
 
-    // Chia cho SUB ðúng
+    // Chia cho SUB ï¿½ï¿½ng
     for (int i = 0; i < playerCount; i++) {
         if (players[i].state == 1 &&
             players[i].role == 0 &&
@@ -354,7 +379,7 @@ void broadcastScores() {
 
 void sendLogToSpectators(const char *msg) {
     for (int i = 0; i < playerCount; i++) {
-        if (players[i].state == 0) {   // spectator (ðang b? lo?i)
+        if (players[i].state == 0) {   // spectator (ï¿½ang b? lo?i)
             if (players[i].sockfd > 0) {
                 send(players[i].sockfd, msg, strlen(msg), 0);
             }
@@ -387,7 +412,17 @@ void processMainRoundResult() {
 
     if (aliveCount <= 1) {
         printf("[GAME] GAME OVER\n");
-        // Not send question
+        for (int i = 0; i < playerCount; i++) {
+            if (players[i].state == 1) {
+                sendCode(&players[i], 420); 
+                char log[128];
+                snprintf(log, sizeof(log), "LOG|Winner is %s\n", players[i].username);
+                sendLogToSpectators(log);
+            } else sendCode(&players[i], 421);
+        }
+        gameState = 0;
+        initPlayers();
+        initWaitingRoom();
         return;
     }
 }

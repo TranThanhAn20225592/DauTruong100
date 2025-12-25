@@ -30,9 +30,6 @@ int gameState = 0; // 0: dang cho, 1: dang choi game
 // SERVER
 int main() {
     int listenfd, connfd, sockfd;
-    // int client[FD_SETSIZE];              // Mang luu socket cua cac client
-    // int logged_in[FD_SETSIZE];           // Trang thai dang nhap cua moi client
-    // char client_user[FD_SETSIZE][50];    // Luu username cua client
     fd_set allset, rset;                 // Tap socket theo doi
     int maxfd, maxi;
     struct sockaddr_in servaddr, cliaddr;
@@ -46,9 +43,6 @@ int main() {
 
     // Khoi tao danh sach client
     for (int i = 0; i < FD_SETSIZE; i++) {
-        // client[i] = -1;
-        // logged_in[i] = 0;
-        // client_user[i][0] = 0;
         sessions[i].sockfd = -1;
         sessions[i].isLoggedIn = 0;
         sessions[i].username[0] = 0;
@@ -96,6 +90,7 @@ int main() {
 
         if (timeoutCode == 210) {
             printf("GAME START! Transferring players...\n");
+            roundPhase = 0;
 
             for (int j = 0; j < waitingCount; j++) {
                 int sock = waitingRoom[j];

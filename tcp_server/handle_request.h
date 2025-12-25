@@ -28,5 +28,9 @@ void handleClientDisconnect(
     ClientSession *sessions
 );
 
+extern int roundPhase;
+extern int activeAnswerCount;
+extern int currentQuestionId;
+
 #endif
 

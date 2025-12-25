@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
+#include <sys/select.h>
 #include <limits.h>
 #include <stdlib.h>
 
@@ -38,15 +39,20 @@ static int countAnsweredAlivePlayers(void) {
 }
 
 /*
- * Gom toàn b? logic "khi t?t c? ngý?i chõi c?n s?ng ð? tr? l?i"
- * ð? dùng chung cho ANSWER / SKIP / DISCONNECT
+ * Gom toan bo logic "khi tat ca nguoi choi con song va tra loi"
+ * de dung chung cho ANSWER / SKIP / DISCONNECT
  */
-static void tryAdvanceRound(void) {
+static void tryAdvanceRound(ClientSession *sessions) {
     int aliveCount = countAlivePlayers();
     int answeredCount = countAnsweredAlivePlayers();
 
     if (aliveCount <= 0) return;
     if (answeredCount != aliveCount) return;
+    for (int k = 0; k < FD_SETSIZE; k++) {
+        if (sessions[k].sockfd > 0) {
+            sessions[k].pendingRoundEnd = 1;
+        }
+    }
 
     if (roundPhase == 0) {
         // CHON MAIN PLAYER (nguoi dung va nhanh nhat)
@@ -87,6 +93,7 @@ static void tryAdvanceRound(void) {
     } else {
         // MAIN GAME
         processMainRoundResult();
+        if (gameState == 0) return 300;
         broadcastScores();
 
         currentQuestionId++;
@@ -201,11 +208,10 @@ int handleRequest(
         p->response_time_ms = elapsed;
         p->isCorrect = (ans_val == getCorrectAnswer());
 
-        // N?u ð? ngý?i tr? l?i -> qua round
+        // Neu du nguoi tra loi -> qua round
         if (gameState == 1) {
-            tryAdvanceRound();
+            tryAdvanceRound(sessions);
         }
-
         return 300;
     }
 
@@ -238,7 +244,7 @@ int handleRequest(
         p->isSkipped = 1;
 
         if (gameState == 1) {
-            tryAdvanceRound();
+            tryAdvanceRound(sessions);
         }
 
         return 307;
@@ -249,26 +255,26 @@ int handleRequest(
 
 /* ============ DISCONNECT HANDLER ============ */
 /*
- * G?I HÀM NÀY ? server.c KHI recv() <= 0
+ * G?I Hï¿½M Nï¿½Y ? server.c KHI recv() <= 0
  */
 void handleClientDisconnect(
     int client_fd,
     int idx,
     ClientSession *sessions
 ) {
-    // user offline n?u ðang login
+    // user offline n?u ï¿½ang login
     if (sessions[idx].isLoggedIn) {
         setUserOffline(sessions[idx].username);
         sessions[idx].isLoggedIn = 0;
         sessions[idx].username[0] = 0;
     }
 
-    // mark player disconnected (player.c m?i s? state=0, answered=1 n?u chýa)
+    // mark player disconnected (player.c m?i s? state=0, answered=1 n?u chï¿½a)
     removePlayer(client_fd);
 
-    // n?u ðang ? trong game, th? ð?y round ti?p
+    // neu dang o trong game, thu day round tiep
     if (gameState == 1) {
-        tryAdvanceRound();
+        tryAdvanceRound(sessions);
     }
 }
 
