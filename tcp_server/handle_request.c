@@ -20,7 +20,7 @@ extern int gameState;
 // 0: chon main, 1: luot choi chinh
 int roundPhase = 0;
 
-/* ================== UTILS ================== */
+// UTILS
 
 static int countAlivePlayers(void) {
     int alive = 0;
@@ -104,8 +104,7 @@ static void tryAdvanceRound(ClientSession *sessions) {
     }
 }
 
-/* ============== USER ONLINE ================= */
-
+// USER ONLINE 
 int isUserOnline(char *username) {
     for (int i = 0; i < onlineCount; i++) {
         if (strcmp(onlineUser[i], username) == 0) return 1;
@@ -128,8 +127,7 @@ void setUserOffline(char *username) {
     }
 }
 
-/* ================= MAIN HANDLER ================= */
-
+// MAIN HANDLER
 int handleRequest(
     char *buff,
     int idx,
@@ -221,7 +219,7 @@ int handleRequest(
         if (!p || p->state != 1) return 301;
 
         // chi MAIN duoc skip
-        if (p->role != 1) return 305;
+        if (p->role != 1) return 424;
 
         // het luot skip -> eliminated
         if (p->skip_left <= 0) {
@@ -246,33 +244,29 @@ int handleRequest(
         if (gameState == 1) {
             tryAdvanceRound(sessions);
         }
-
-        return 307;
     }
 
     return code;
 }
 
-/* ============ DISCONNECT HANDLER ============ */
-/*
- * G?I H�M N�Y ? server.c KHI recv() <= 0
- */
+
 void handleClientDisconnect(
     int client_fd,
     int idx,
     ClientSession *sessions
 ) {
-    // user offline n?u �ang login
+    // User offline neu dang login
     if (sessions[idx].isLoggedIn) {
         setUserOffline(sessions[idx].username);
         sessions[idx].isLoggedIn = 0;
         sessions[idx].username[0] = 0;
     }
 
-    // mark player disconnected (player.c m?i s? state=0, answered=1 n?u ch�a)
+    // Danh dau player bi disconnect
+    // player.c se xu ly state = 0, answered = 1 neu can
     removePlayer(client_fd);
 
-    // neu dang o trong game, thu day round tiep
+    // Neu dang o trong game thi thu day sang round tiep theo
     if (gameState == 1) {
         tryAdvanceRound(sessions);
     }

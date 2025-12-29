@@ -9,7 +9,7 @@
 #include "question.h"
 #include "join.h"
 
-// Prototype �? tr�nh implicit declaration/conflicting types
+// Prototype de tranh implicit declaration / conflicting types
 void sendLogToSpectators(const char *msg);
 
 // GLOBAL
@@ -61,7 +61,7 @@ void applyTimeoutRules() {
     }
 }
 
-// SEND QUESTION - d�ng cho c? 2 stage
+// SEND QUESTION - dung cho ca 2 stage
 void sendQuestionToAllPlayers(int questionId) {
 
     if (questionId >= questionCount) {
@@ -69,14 +69,14 @@ void sendQuestionToAllPlayers(int questionId) {
         return;
     }
 
-    // ? Kh�ng d�ng activeAnswerCount n?a
-    // Vi?c ki?m tra "�? ng�?i tr? l?i" �? d?a v�o players[i].answered ? handle_request.c
+    // Khong dung activeAnswerCount nua
+    // Kiem tra "da tra loi hay chua" dua vao players[i].answered o handle_request.c
 
     currentQuestionId = questionId;
     Question *q = &questions[questionId];
     char buffer[1024];
 
-    // reset tr?ng th�i tr? l?i c?a player
+    // Reset trang thai tra loi cua player
     resetPlayerAnswers();
     gettimeofday(&question_start_time, NULL);
 
@@ -93,7 +93,7 @@ void sendQuestionToAllPlayers(int questionId) {
     for (int i = 0; i < playerCount; i++) {
         if (players[i].state == 1) {
 
-            // N?u l� MAIN -> g?i info skip c?n l?i
+            // Neu la MAIN -> gui thong tin skip con lai
             if (players[i].role == 1) {
                 char skipMsg[64];
                 snprintf(skipMsg, sizeof(skipMsg), "SKIP_INFO|%d\n", players[i].skip_left);
@@ -212,13 +212,13 @@ void handleMainWrong() {
     sendCode(main, 410); // ELIMINATED
 
     main->score = 0;
-    main->state = 0; 
+    main->state = 0;
 
     char log[128];
     snprintf(log, sizeof(log),
         "LOG|MAIN %s was eliminated\n",
         main->username);
-    sendLogToSpectators(log);
+        sendLogToSpectators(log);
 
     int correctSubCount = 0;
 
@@ -280,7 +280,7 @@ void handleMainWrong() {
     }
 
     for (int i = 0; i < playerCount; i++)
-        players[i].role = 0; // Reset role cũ
+        players[i].role = 0; // Reset role cu
 
     if (nextMain != -1) {
         players[nextMain].role = 1;
@@ -304,17 +304,17 @@ void handleMainSkip() {
     int totalSubWrongScore = 0;
     int subCorrectCount = 0;
 
-    // Duy?t SUB
+    // Duyet SUB
     for (int i = 0; i < playerCount; i++) {
 
         if (players[i].state != 1 || i == mainIdx)
             continue;
 
         if (players[i].isCorrect) {
-            // SUB ��ng -> c?n s?ng
+            // SUB dung -> con song
             subCorrectCount++;
         } else {
-            // ?? SUB SAI / TIMEOUT / DISCONNECT -> B? LO?I
+            // SUB sai / timeout / disconnect -> bi loai
             totalSubWrongScore += players[i].score;
             players[i].score = 0;
             players[i].state = 0;
@@ -326,40 +326,48 @@ void handleMainSkip() {
             }
             sendCode(&players[i], 410); // ELIMINATED
 
-            // log spectator
+            // Log spectator
             char log[128];
             snprintf(log, sizeof(log),
-                "LOG|%s was eliminated (SKIP)\n",
+                "LOG|%s was eliminated (MAIN SKIP)\n",
                 players[i].username);
             sendLogToSpectators(log);
         }
     }
 
-    // Kh�ng c� SUB ��ng ? kh�ng ai �n �i?m
-    if (subCorrectCount == 0) {
-        sendCode(main, 308); // NO WINNER
-        return;
-    }
+    // Neu khong co SUB dung -> khong chia diem, chi sang cau moi
+    if (subCorrectCount > 0) {
 
-    // MAIN chia 1/2 �i?m
-    int halfMainScore = main->score / 2;
-    main->score -= halfMainScore;
+        // MAIN chia 1/2 diem
+        int halfMainScore = main->score / 2;
+        main->score -= halfMainScore;
 
-    int share =
-        (halfMainScore + totalSubWrongScore) / subCorrectCount;
+        int share = (halfMainScore + totalSubWrongScore) / subCorrectCount;
 
-    // Chia cho SUB ��ng
-    for (int i = 0; i < playerCount; i++) {
-        if (players[i].state == 1 &&
-            players[i].role == 0 &&
-            players[i].isCorrect) {
+        // Chia cho SUB dung
+        for (int i = 0; i < playerCount; i++) {
+            if (players[i].state == 1 &&
+                players[i].role == 0 &&
+                players[i].isCorrect) {
 
-            players[i].score += share;
-            sendCode(&players[i], 400); // SUB CORRECT
+                players[i].score += share;
+                sendCode(&players[i], 400); // SUB CORRECT
+            }
         }
     }
 
-    sendCode(main, 430); // MAIN SKIPPED
+    for (int i = 0; i < playerCount; i++) {
+        if (players[i].state != 1)
+           continue;
+
+        if (players[i].role == 1) {
+           // MAIN
+           sendCode(&players[i], 423);
+        } else {
+           // SUB
+           sendCode(&players[i], 422);
+        }
+    }
 }
 
 // Cap nhat score sau moi cau hoi trong luot choi chinh
@@ -379,7 +387,7 @@ void broadcastScores() {
 
 void sendLogToSpectators(const char *msg) {
     for (int i = 0; i < playerCount; i++) {
-        if (players[i].state == 0) {   // spectator (�ang b? lo?i)
+        if (players[i].state == 0) {   // spectator (dang bi loai)
             if (players[i].sockfd > 0) {
                 send(players[i].sockfd, msg, strlen(msg), 0);
             }
@@ -403,7 +411,7 @@ void processMainRoundResult() {
         handleMainWrong();
     }
 
-    // KIEM TRA GAME OVER
+    // Kiem tra game over
     int aliveCount = 0;
     for (int i = 0; i < playerCount; i++) {
         if (players[i].state == 1)
@@ -414,11 +422,13 @@ void processMainRoundResult() {
         printf("[GAME] GAME OVER\n");
         for (int i = 0; i < playerCount; i++) {
             if (players[i].state == 1) {
-                sendCode(&players[i], 420); 
+                sendCode(&players[i], 420);
                 char log[128];
                 snprintf(log, sizeof(log), "LOG|Winner is %s\n", players[i].username);
                 sendLogToSpectators(log);
-            } else sendCode(&players[i], 421);
+            } else {
+                sendCode(&players[i], 421);
+            }
         }
         gameState = 0;
         initPlayers();
@@ -426,6 +436,4 @@ void processMainRoundResult() {
         return;
     }
 }
-
-
 

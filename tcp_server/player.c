@@ -18,12 +18,14 @@ int addPlayer(int sockfd, char *username) {
     if (playerCount >= MAX_PLAYERS) return -1;
 
     players[playerCount].sockfd = sockfd;
-    strncpy(players[playerCount].username, username, sizeof(players[playerCount].username) - 1);
-    players[playerCount].username[sizeof(players[playerCount].username) - 1] = '\0';
+    strncpy(players[playerCount].username, username,
+            sizeof(players[playerCount].username) - 1);
+    players[playerCount].username[
+        sizeof(players[playerCount].username) - 1] = '\0';
 
     players[playerCount].score = 10;
-    players[playerCount].state = 1;          // active
-    players[playerCount].role = 0;           // sub player
+    players[playerCount].state = 1;    // active
+    players[playerCount].role = 0;     // sub player
 
     players[playerCount].currentAnswer = 0;
     players[playerCount].answered = 0;
@@ -39,14 +41,14 @@ int addPlayer(int sockfd, char *username) {
 }
 
 /*
- * KHÔNG xóa player kh?i m?ng
- * CH? ðánh d?u state = 0
- * Auto-mark answered ð? tránh block round
+ * KHONG xoa player khoi mang
+ * CHI danh dau state = 0
+ * Tu dong mark answered de tranh block round
  */
 void removePlayer(int sockfd) {
     for (int i = 0; i < playerCount; i++) {
         if (players[i].sockfd == sockfd) {
-            // ?? DISCONNECT ? TR? L?I SAI
+            // Neu disconnect thi xem nhu tra loi sai
             players[i].answered = 1;
             players[i].isCorrect = 0;
             players[i].isTimeout = 1;   // coi disconnect = timeout
@@ -55,10 +57,9 @@ void removePlayer(int sockfd) {
     }
 }
 
-
 /*
- * Reset tr?ng thái cho câu h?i m?i
- * CH? reset player c?n s?ng
+ * Reset trang thai cho cau hoi moi
+ * CHI reset player con song
  */
 void resetPlayerAnswers() {
     for (int i = 0; i < playerCount; i++) {
