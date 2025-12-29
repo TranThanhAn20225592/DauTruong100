@@ -22,7 +22,7 @@ int roundPhase = 0;
 
 // UTILS
 
-static int countAlivePlayers(void) {
+int countAlivePlayers(void) {
     int alive = 0;
     for (int i = 0; i < playerCount; i++) {
         if (players[i].state == 1) alive++;
@@ -30,7 +30,7 @@ static int countAlivePlayers(void) {
     return alive;
 }
 
-static int countAnsweredAlivePlayers(void) {
+int countAnsweredAlivePlayers(void) {
     int ans = 0;
     for (int i = 0; i < playerCount; i++) {
         if (players[i].state == 1 && players[i].answered) ans++;
@@ -42,7 +42,7 @@ static int countAnsweredAlivePlayers(void) {
  * Gom toan bo logic "khi tat ca nguoi choi con song va tra loi"
  * de dung chung cho ANSWER / SKIP / DISCONNECT
  */
-static void tryAdvanceRound(ClientSession *sessions) {
+void tryAdvanceRound(ClientSession *sessions) {
     int aliveCount = countAlivePlayers();
     int answeredCount = countAnsweredAlivePlayers();
 
@@ -103,6 +103,41 @@ static void tryAdvanceRound(ClientSession *sessions) {
         sendQuestionToAllPlayers(currentQuestionId);
     }
 }
+
+int checkQuestionTimeoutAndForceAnswer(ClientSession *sessions) {
+	
+	if (roundPhase != 1) return 0;
+	
+    struct timeval now;
+    gettimeofday(&now, NULL);
+
+    int forced = 0;
+
+    for (int i = 0; i < playerCount; i++) {
+        if (players[i].state != 1) continue;
+        if (players[i].answered) continue;
+
+        long elapsed =
+            (now.tv_sec - question_start_time.tv_sec) * 1000 +
+            (now.tv_usec - question_start_time.tv_usec) / 1000;
+
+        if (elapsed >= players[i].time_limit_ms) {
+            players[i].answered = 1;
+            players[i].isCorrect = 0;
+            players[i].isTimeout = 1;
+            players[i].response_time_ms = players[i].time_limit_ms;
+            
+            forced = 1;
+        }
+    }
+
+    if (forced) {
+        tryAdvanceRound(sessions);
+    }
+
+    return forced;
+}
+
 
 // USER ONLINE 
 int isUserOnline(char *username) {

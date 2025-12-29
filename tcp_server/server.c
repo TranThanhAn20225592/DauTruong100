@@ -133,6 +133,9 @@ int main() {
 
         // Het thoi gian cho -> quay lai vong lap
         if (nready == 0) {
+        	if (gameState == 1) {
+               checkQuestionTimeoutAndForceAnswer(sessions);
+            }
             continue;
         }
 
