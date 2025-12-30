@@ -11,6 +11,7 @@
 #include "player.h"
 #include "game.h"
 #include "question.h"
+#include "log.h"
 
 // GLOBAL
 char onlineUser[1000][50];
@@ -188,6 +189,7 @@ int handleRequest(
         if (cnt == 3) {
             if (isUserOnline(arg1)) {
                 code = 113;
+                writeLog("LOGIN", arg1, "-ERR 113");
             } else {
                 code = loginAccount(arg1, arg2);
                 if (code == 110) {
@@ -203,6 +205,7 @@ int handleRequest(
     // LOGOUT
     if (strcmp(cmd, "LOGOUT") == 0) {
         if (!sessions[idx].isLoggedIn) {
+            writeLog("LOGOUT", sessions[idx].username, "-ERR 121");
             return 121;
         }
         code = logoutAccount(sessions[idx].username);
@@ -216,9 +219,25 @@ int handleRequest(
 
     // JOIN
     if (strcmp(cmd, "JOIN") == 0) {
-        if (!sessions[idx].isLoggedIn) return 299;
-        if (gameState == 1) return 203;
-        return handleJoin(client_fd);
+        if (!sessions[idx].isLoggedIn) {
+            writeLog("JOIN", "UNKNOWN", "-ERR 299");
+            return 299;
+        }
+        if (gameState == 1) {
+            writeLog("JOIN", sessions[idx].username, "-ERR 203");
+            return 203;
+        }
+        int code = handleJoin(client_fd);
+        if (code == 200) {
+            writeLog("JOIN", sessions[idx].username, "+OK 200");
+        } else if (code == 201) {
+            writeLog("JOIN", sessions[idx].username, "-ERR 201");
+        } else if (code == 202) {
+            writeLog("JOIN", sessions[idx].username, "-ERR 202");
+        } else if (code == 203) {
+            writeLog("JOIN", sessions[idx].username, "-ERR 203");
+        }
+        return code;
     }
 
     // ANSWER
@@ -245,6 +264,7 @@ int handleRequest(
         if (gameState == 1) {
             tryAdvanceRound(sessions);
         }
+        writeLog("ANSWER", p->username, "+OK 300");
         return 300;
     }
 
@@ -269,6 +289,7 @@ int handleRequest(
             if (currentQuestionId < questionCount && gameState == 1) {
                 sendQuestionToAllPlayers(currentQuestionId);
             }
+            writeLog("SKIP", p->username, "+OK 300");
             return 300;
         }
 
@@ -280,7 +301,6 @@ int handleRequest(
             tryAdvanceRound(sessions);
         }
     }
-
     return code;
 }
 

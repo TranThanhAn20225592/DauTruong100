@@ -21,8 +21,6 @@
 #define BACKLOG 20
 #define BUFF_SIZE 4096
 
-
-
 ClientSession sessions[FD_SETSIZE];
 
 int gameState = 0; // 0: dang cho, 1: dang choi game
@@ -177,6 +175,10 @@ int main() {
 
                 // Gui ma chao khi ket noi
                 send(connfd, "900\n", 4, 0);
+                printf("New client connected: %s:%d (fd=%d)\n",
+                       inet_ntoa(cliaddr.sin_addr),
+                       ntohs(cliaddr.sin_port),
+                       connfd);
             }
 
             if (--nready <= 0) continue;
@@ -224,7 +226,6 @@ int main() {
                             snprintf(out, sizeof(out), "%d\n", code);
                             send(sockfd, out, strlen(out), 0);
                             if (sessions[i].pendingRoundEnd) {
-                                printf("[DEBUG] Round ended. Flushing buffer for client %d\n", sockfd);
                                 sessions[i].pendingRoundEnd = 0;
                                 sessions[i].bufferLen = 0;
                                 memset(sessions[i].buffer, 0, BUFF_SIZE);

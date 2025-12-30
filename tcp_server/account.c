@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "log.h"
 
 #define ACCOUNT_FILE "account.txt"
 
@@ -55,6 +56,7 @@ int registerAccount(const char *username, const char *password) {
 	loadAccounts();
 	
     if (findAccount(username) != -1) {
+        writeLog("REGISTER", username, "-ERR 211");
         return 101; 
     }
 
@@ -63,6 +65,7 @@ int registerAccount(const char *username, const char *password) {
     accountCount++;
 
     saveAccounts();
+    writeLog("REGISTER", username, "+OK 100");
     return 100; // OK
 }
 
@@ -71,16 +74,22 @@ int loginAccount(const char *username, const char *password) {
     int idx = findAccount(username);
     if (idx == -1) return 112; 
 
-    if (strcmp(accounts[idx].password, password) != 0)
+    if (strcmp(accounts[idx].password, password) != 0) {
+        writeLog("LOGIN", username, "-ERR 111");
         return 111; // sai password
-
+    }
+    writeLog("LOGIN", username, "+OK 110");
     return 110; // login thanh cong
 }
 
 // LOGOUT
 int logoutAccount(const char *username) {
     int idx = findAccount(username);
-    if (idx == -1) return 112; 
+    if (idx == -1) {
+        writeLog("LOGOUT", username, "-ERR 112");
+        return 112; 
+    }
+    writeLog("LOGOUT", username, "+OK 120");
     return 120;
 }
 
