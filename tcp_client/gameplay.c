@@ -85,7 +85,6 @@ void gamePlay(int sockfd, const char *my_username) {
                             printf("(!) No skips left (5 = eliminated)\n");
                         printf("---------------------------------------------\n");
                     }
-
                     printf("Enter your answer (1-4");
                     if (skipLeft >= 0) printf(", 5=SKIP");
                     printf("): ");

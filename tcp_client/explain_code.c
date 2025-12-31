@@ -3,6 +3,7 @@
 #include <string.h>
 
 void explain_code(const char *code) {
+    if (strcmp(code, "0") == 0) return;
     if (strcmp(code,"900") == 0) puts("Connected to server");
     else if (strcmp(code,"100") == 0) puts("Register successful");
     else if (strcmp(code,"101") == 0) puts("Account already exists");

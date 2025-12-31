@@ -285,9 +285,13 @@ int handleRequest(
         // het luot skip
         if (p->skip_left <= 0) {
             writeLog("SKIP", p->username, "-ERR 425");
-            return 425;
+            char *msg = "425\n"; 
+            send(client_fd, msg, strlen(msg), 0);
+            return 0;
         }
-
+        char *msg = "307\n";
+        send(client_fd, msg, strlen(msg), 0);
+        writeLog("SKIP", p->username, "+OK 307");
         p->skip_left--;
         p->answered = 1;
         p->isSkipped = 1;
@@ -295,10 +299,8 @@ int handleRequest(
         if (gameState == 1) {
             tryAdvanceRound(sessions);
         }
-        writeLog("SKIP", p->username, "+OK 307");
-        return 307;
     }
-    return code;
+    return 0;
 }
 
 
