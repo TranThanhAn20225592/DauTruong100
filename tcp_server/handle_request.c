@@ -282,21 +282,10 @@ int handleRequest(
             return 424;
         }
 
-        // het luot skip -> eliminated
+        // het luot skip
         if (p->skip_left <= 0) {
-            printf("[GAME] Player %s tried to skip with 0 skips left -> Eliminated\n", p->username);
-
-            handleMainWrong();
-            broadcastScores();
-
-            currentQuestionId++;
-            if (currentQuestionId >= questionCount) currentQuestionId = 0;
-
-            if (currentQuestionId < questionCount && gameState == 1) {
-                sendQuestionToAllPlayers(currentQuestionId);
-            }
-            writeLog("SKIP", p->username, "+OK 300");
-            return 300;
+            writeLog("SKIP", p->username, "-ERR 425");
+            return 425;
         }
 
         p->skip_left--;

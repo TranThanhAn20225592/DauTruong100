@@ -38,6 +38,7 @@ void explain_code(const char *code) {
     else if (strcmp(code,"422") == 0) puts("Main player skipped the question, next question");
     else if (strcmp(code,"423") == 0) puts("You skipped this question");
     else if (strcmp(code,"424") == 0) puts("Only MAIN player can skip");
+    else if (strcmp(code,"425") == 0) puts("No skips left");
 
     else if (strcmp(code,"299") == 0) puts("You must login before joining a game");
     else puts(code);
