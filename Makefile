@@ -4,7 +4,7 @@ CFLAGS = -std=c11 -Wall -Wextra -O2 -pthread
 
 # Source files
 SERVER_SRC = tcp_server/server.c tcp_server/account.c tcp_server/handle_request.c tcp_server/join.c tcp_server/player.c tcp_server/question.c tcp_server/game.c tcp_server/log.c
-CLIENT_SRC = tcp_client/client.c 
+CLIENT_SRC = tcp_client/client.c tcp_client/network.c tcp_client/explain_code.c tcp_client/gameplay.c tcp_client/menu.c
 
 # Output binaries (placed at root)
 SERVER_BIN = server
