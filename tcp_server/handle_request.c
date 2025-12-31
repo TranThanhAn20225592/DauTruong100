@@ -263,12 +263,14 @@ int handleRequest(
         p->response_time_ms = elapsed;
         p->isCorrect = (ans_val == getCorrectAnswer());
 
+        char *msg = "300\n"; 
+        send(client_fd, msg, strlen(msg), 0);
+        writeLog("ANSWER", p->username, "+OK 300");
         // Neu du nguoi tra loi -> qua round
         if (gameState == 1) {
             tryAdvanceRound(sessions);
         }
-        writeLog("ANSWER", p->username, "+OK 300");
-        return 300;
+        return 0;
     }
 
     // SKIP
@@ -284,9 +286,9 @@ int handleRequest(
 
         // het luot skip
         if (p->skip_left <= 0) {
-            writeLog("SKIP", p->username, "-ERR 425");
             char *msg = "425\n"; 
             send(client_fd, msg, strlen(msg), 0);
+            writeLog("SKIP", p->username, "-ERR 425");
             return 0;
         }
         char *msg = "307\n";
