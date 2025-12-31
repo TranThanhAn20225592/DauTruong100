@@ -10,7 +10,8 @@ void writeLog(
     if (!f) return;
 
     time_t now = time(NULL);
-    struct tm *t = localtime(&now);
+    time_t nowVN = now + 7 * 3600;
+    struct tm *t = localtime(&nowVN);
     if (!t) {
         fclose(f);
         return;

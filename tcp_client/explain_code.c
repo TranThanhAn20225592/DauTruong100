@@ -22,6 +22,7 @@ void explain_code(const char *code) {
     else if (strcmp(code,"300") == 0) puts("Answer received");
     else if (strcmp(code,"301") == 0) puts("You are not in the game");
     else if (strcmp(code,"302") == 0) puts("You have already answered");
+    else if (strcmp(code,"307") == 0) puts("Skip successful");
     else if (strcmp(code,"308") == 0) puts("Skip completed but no scores changed");
     
     else if (strcmp(code,"400") == 0) puts("Answer correct");
@@ -33,7 +34,7 @@ void explain_code(const char *code) {
     else if (strcmp(code,"413") == 0) puts("Main answered correctly");
     else if (strcmp(code,"414") == 0) puts("Main answered wrong");
     else if (strcmp(code,"420") == 0) puts("You win the game!");
-    else if (strcmp(code,"421") == 0) puts("No winner this round");
+    else if (strcmp(code,"421") == 0) puts("Game over!");
     else if (strcmp(code,"422") == 0) puts("Main player skipped the question, next question");
     else if (strcmp(code,"423") == 0) puts("You skipped this question");
     else if (strcmp(code,"424") == 0) puts("Only MAIN player can skip");

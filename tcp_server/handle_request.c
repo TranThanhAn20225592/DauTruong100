@@ -245,7 +245,10 @@ int handleRequest(
         int ans_val = atoi(arg1);
         Player *p = getPlayer(client_fd);
 
-        if (!p || p->state != 1) return 301;
+        if (!p || p->state != 1) {
+            writeLog("ANSWER", sessions[idx].username, "-ERR 301");
+            return 301;
+        }
         if (p->answered) return 302;
 
         struct timeval now;
@@ -274,7 +277,10 @@ int handleRequest(
         if (!p || p->state != 1) return 301;
 
         // chi MAIN duoc skip
-        if (p->role != 1) return 424;
+        if (p->role != 1) {
+            writeLog("SKIP", p->username, "-ERR 424");
+            return 424;
+        }
 
         // het luot skip -> eliminated
         if (p->skip_left <= 0) {
@@ -300,6 +306,8 @@ int handleRequest(
         if (gameState == 1) {
             tryAdvanceRound(sessions);
         }
+        writeLog("SKIP", p->username, "+OK 307");
+        return 307;
     }
     return code;
 }
